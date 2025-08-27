@@ -1,0 +1,24 @@
+name: thuc_tap_tot_nghiep
+description: POS local sample
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.18.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.3.6
+  sqflite: ^2.2.8+4
+  path_provider: ^2.0.14
+  path: ^1.8.3
+  image_picker: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
