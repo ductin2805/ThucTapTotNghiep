@@ -15,7 +15,12 @@ class ProductDao {
   }
 
   Future<int> updateStock(int id, int newStock) async {
-    return await _db.update('products', {'stock': newStock}, where: 'id = ?', whereArgs: [id]);
+    return await _db.update(
+      'products',
+      {'stock': newStock},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> delete(int id) async {
