@@ -4,7 +4,8 @@ import '../../widgets/product_tile.dart';
 import '../../../providers/product_provider.dart';
 import '../../../data/models/product.dart';
 import '../more/add_product_page.dart';
-
+import '../cart/cart_page.dart';
+import '../../../providers/cart_provider.dart';
 class SalesPage extends ConsumerWidget {
   const SalesPage({super.key});
 
@@ -19,16 +20,51 @@ class SalesPage extends ConsumerWidget {
         elevation: 0.5,
         title: const Text('Bán hàng'),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.qr_code_scanner)),
+          Consumer(
+            builder: (context, ref, _) {
+              final cart = ref.watch(cartProvider);
+              final totalItems = cart.fold<int>(0, (sum, item) => sum + item.quantity);
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.shopping_cart),
+                  ),
+                  if (totalItems > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          "$totalItems",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.qr_code_scanner),
+          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          // Mở form thêm sản phẩm
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductPage()));
-          // khi trở về, provider đã reload trong AddProductPage
-        },
-        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -93,30 +129,45 @@ class SalesPage extends ConsumerWidget {
                 return ProductTile(
                   product: p,
                   onTap: () {
-                    // dialog cập nhật tồn (ví dụ)
+                    final controller = TextEditingController(text: "1");
                     showDialog(
                       context: context,
-                      builder: (c) {
-                        final controller = TextEditingController(text: p.stock.toString());
-                        return AlertDialog(
-                          title: Text('Cập nhật tồn: ${p.name}'),
-                          content: TextField(
-                            controller: controller,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Số lượng'),
+                      builder: (c) => AlertDialog(
+                        title: Text("Thêm vào giỏ: ${p.name}"),
+                        content: TextField(
+                          controller: controller,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: "Số lượng"),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c),
+                            child: const Text("Hủy"),
                           ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Hủy')),
-                            ElevatedButton(
-                                onPressed: () async {
-                                  final newStock = int.tryParse(controller.text) ?? p.stock;
-                                  await ref.read(productListProvider.notifier).updateStock(p.id!, newStock);
-                                  Navigator.pop(c);
-                                },
-                                child: const Text('Lưu')),
-                          ],
-                        );
-                      },
+                          ElevatedButton(
+                            onPressed: () async {
+                              final qty = int.tryParse(controller.text) ?? 1;
+                              if (p.id != null) {
+                                // 1. Thêm vào giỏ hàng
+                                await ref.read(cartProvider.notifier).addToCart(p.id!, quantity: qty);
+
+                                // 2. Giảm số lượng tồn kho của sản phẩm
+                                final newStock = (p.stock - qty).clamp(0, p.stock); // không cho nhỏ hơn 0
+                                await ref.read(productListProvider.notifier).updateStock(p.id!, newStock);
+
+                                // 3. Đóng dialog
+                                Navigator.pop(c);
+
+                                // 4. Hiện thông báo
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("${p.name} x$qty đã thêm vào giỏ. Tồn mới: $newStock")),
+                                );
+                              }
+                            },
+                            child: const Text("Thêm"),
+                          ),
+                        ],
+                      ),
                     );
                   },
                   onDelete: () async {
