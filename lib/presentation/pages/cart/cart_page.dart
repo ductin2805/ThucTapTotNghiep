@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/cart_provider.dart';
 import '../../../data/models/cart_product.dart';
-import 'dart:io';
 import '../../../providers/product_provider.dart';
+import '../../pages/payment/payment_page.dart';
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
@@ -127,8 +127,26 @@ class CartPage extends ConsumerWidget {
                   backgroundColor: Colors.lightBlue,
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                onPressed: () {
-                  // TODO: xử lý thanh toán
+                onPressed: () async {
+                  if (cart.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Giỏ hàng trống, không thể thanh toán")),
+                    );
+                    return;
+                  }
+
+                  // ⚡ Điều hướng sang PaymentPage và chờ kết quả
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PaymentPage(totalAmount: total),
+                    ),
+                  );
+
+                  if (result == true) {
+                    // chỉ clearCart ở đây
+                    ref.read(cartProvider.notifier).clearCart();
+                  }
                 },
                 child: const Text("Thanh toán"),
               ),

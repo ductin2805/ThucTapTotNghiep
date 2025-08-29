@@ -18,10 +18,12 @@ class AppDatabase {
 
     _db = await openDatabase(
       path,
-      version: 3, // ⚡ tăng version mỗi khi thay đổi schema
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+
+    await _db!.execute('PRAGMA foreign_keys = ON');
   }
 
   Database get db {
@@ -51,6 +53,18 @@ class AppDatabase {
         FOREIGN KEY(product_id) REFERENCES products(id)
       )
     ''');
+
+    // bảng thanh toán
+    await db.execute('''
+      CREATE TABLE payments(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        total REAL NOT NULL,
+        paid REAL NOT NULL,
+        change REAL NOT NULL,
+        method TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Migration khi nâng cấp DB
@@ -72,8 +86,18 @@ class AppDatabase {
       ''');
     }
 
-    // ví dụ sau này nếu bạn nâng lên v4, v5...
-    // if (oldVersion < 4) { ... }
-    // if (oldVersion < 5) { ... }
+    if (oldVersion < 4) {
+      // v4: tạo bảng payments
+      await db.execute('''
+        CREATE TABLE payments(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          total REAL NOT NULL,
+          paid REAL NOT NULL,
+          change REAL NOT NULL,
+          method TEXT NOT NULL,
+          createdAt TEXT NOT NULL
+        )
+      ''');
+    }
   }
 }

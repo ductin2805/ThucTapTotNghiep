@@ -10,7 +10,7 @@ class CartNotifier extends StateNotifier<List<CartProduct>> {
     loadCart();
   }
 
-  /// Load lại giỏ hàng từ DB
+  /// Load giỏ hàng từ repository
   Future<void> loadCart() async {
     final items = await _repo.getCartProducts();
     state = items;
@@ -34,7 +34,7 @@ class CartNotifier extends StateNotifier<List<CartProduct>> {
     await loadCart();
   }
 
-  /// Xóa toàn bộ giỏ hàng
+  /// Xóa toàn bộ giỏ hàng (dùng sau thanh toán)
   Future<void> clearCart() async {
     await _repo.clearCart();
     await loadCart();
