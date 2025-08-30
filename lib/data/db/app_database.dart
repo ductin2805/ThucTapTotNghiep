@@ -18,7 +18,7 @@ class AppDatabase {
 
     _db = await openDatabase(
       path,
-      version: 4,
+      version: 5, // ⚡ nâng version lên
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -65,6 +65,33 @@ class AppDatabase {
         createdAt TEXT NOT NULL
       )
     ''');
+
+    // bảng hóa đơn (header)
+    await db.execute('''
+  CREATE TABLE invoices(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    customer TEXT NOT NULL,
+    total REAL NOT NULL,
+    paid REAL NOT NULL,
+    debt REAL NOT NULL,
+    method TEXT NOT NULL
+  )
+''');
+
+    // bảng chi tiết hóa đơn (detail lines)
+    await db.execute('''
+  CREATE TABLE invoice_items(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL,
+    product_id INTEGER,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY(invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+  )
+''');
   }
 
   /// Migration khi nâng cấp DB
@@ -98,6 +125,32 @@ class AppDatabase {
           createdAt TEXT NOT NULL
         )
       ''');
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+    CREATE TABLE invoices(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      customer TEXT NOT NULL,
+      total REAL NOT NULL,
+      paid REAL NOT NULL,
+      debt REAL NOT NULL,
+      method TEXT NOT NULL
+    )
+  ''');
+
+      await db.execute('''
+    CREATE TABLE invoice_items(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id INTEGER NOT NULL,
+      product_id INTEGER,
+      name TEXT NOT NULL,
+      price REAL NOT NULL,
+      quantity INTEGER NOT NULL,
+      FOREIGN KEY(invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    )
+  ''');
     }
   }
 }

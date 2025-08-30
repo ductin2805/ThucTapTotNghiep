@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import '../../../data/models/product.dart';
 import '../../../providers/product_provider.dart';
 
@@ -21,6 +23,9 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
   final ImagePicker _picker = ImagePicker();
   String? _imgPath;
 
+  // formatter tiền VNĐ
+  final _currencyFormatter = NumberFormat("#,##0", "vi_VN");
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -30,7 +35,6 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
   }
 
   Future<void> _pickImage() async {
-    // mở gallery; nếu muốn camera thì dùng ImageSource.camera
     final XFile? picked = await _picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1200,
@@ -46,10 +50,16 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       final name = _nameCtrl.text.trim();
-      final price = double.tryParse(_priceCtrl.text.trim()) ?? 0;
+
+      // loại bỏ dấu phẩy để parse giá trị
+      final rawPrice = _priceCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final price = double.tryParse(rawPrice) ?? 0;
+
       final stock = int.tryParse(_stockCtrl.text.trim()) ?? 0;
+
       final p = Product(name: name, price: price, stock: stock, img: _imgPath);
       await ref.read(productListProvider.notifier).add(p);
+
       if (mounted) Navigator.pop(context);
     }
   }
@@ -82,7 +92,8 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _imgPath == null
-                      ? const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))
+                      ? const Center(
+                      child: Icon(Icons.image, size: 40, color: Colors.grey))
                       : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.file(
@@ -95,22 +106,48 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 ),
               ),
               const SizedBox(height: 18),
+
+              // tên sản phẩm
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(labelText: 'Tên mặt hàng'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập tên' : null,
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Nhập tên' : null,
               ),
+
+              // giá VNĐ
               TextFormField(
                 controller: _priceCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    if (newValue.text.isEmpty) return newValue;
+                    final raw = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+                    final formatted =
+                    _currencyFormatter.format(int.parse(raw));
+                    return newValue.copyWith(
+                      text: formatted,
+                      selection: TextSelection.collapsed(
+                          offset: formatted.length),
+                    );
+                  }),
+                ],
                 decoration: const InputDecoration(labelText: 'Giá (VNĐ)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập giá' : null,
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Nhập giá' : null,
               ),
+
+              // tồn kho
               TextFormField(
                 controller: _stockCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
                 decoration: const InputDecoration(labelText: 'Số lượng tồn'),
               ),
+
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _save,

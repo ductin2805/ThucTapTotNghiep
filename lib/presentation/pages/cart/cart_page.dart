@@ -4,6 +4,7 @@ import '../../../providers/cart_provider.dart';
 import '../../../data/models/cart_product.dart';
 import '../../../providers/product_provider.dart';
 import '../../pages/payment/payment_page.dart';
+import '../../../utils/format.dart'; // ✅ dùng để format giá tiền
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
@@ -56,7 +57,8 @@ class CartPage extends ConsumerWidget {
                 return ListTile(
                   title: Text(item.product.name),
                   subtitle: Text(
-                      "${item.product.price.toStringAsFixed(0)} x ${item.quantity}"),
+                    "${formatCurrency(item.product.price)} x ${item.quantity}",
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -116,7 +118,7 @@ class CartPage extends ConsumerWidget {
               _buildSummaryRow("Phụ phí", "0"),
               _buildSummaryRow("Ghi chú", "0"),
               _buildSummaryRow("Thuế", "0"),
-              _buildSummaryRow("Tổng tiền", total.toStringAsFixed(0), bold: true),
+              _buildSummaryRow("Tổng tiền", formatCurrency(total), bold: true), // ✅
             ],
           ),
           SafeArea(

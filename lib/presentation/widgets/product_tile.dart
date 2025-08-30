@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../data/models/product.dart';
+import '../../../utils/format.dart';
 
 class ProductTile extends StatelessWidget {
   final Product product;
@@ -28,9 +29,18 @@ class ProductTile extends StatelessWidget {
         ),
       )
           : const Icon(Icons.image, size: 40, color: Colors.grey),
+
       title: Text(product.name),
-      subtitle: Text("Giá: ${product.price} đ - Tồn: ${product.stock}"),
+
+      // ✅ dùng formatCurrency cho giá
+      subtitle: Text(
+        "Giá: ${formatCurrency(product.price)}   •  Tồn: ${product.stock}",
+        style: const TextStyle(color: Colors.black54),
+      ),
+
       onTap: onTap,
+
+      // nút xoá
       trailing: IconButton(
         icon: const Icon(Icons.delete, color: Colors.red),
         onPressed: onDelete,

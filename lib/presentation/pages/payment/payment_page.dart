@@ -52,16 +52,25 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
       "createdAt": DateTime.now().toIso8601String(),
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Thanh toán thành công"),
-        ),
-      );
-      // trả về true để CartPage biết clear giỏ
-      Navigator.pop(context, true);
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Thanh toán thành công")),
+    );
+
+    // ⚡ Đợi hết frame hiện tại rồi mới pop
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).pop(true); // trả kết quả về CartPage
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    });
   }
+
 
   @override
   Widget build(BuildContext context) {

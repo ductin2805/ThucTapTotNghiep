@@ -6,6 +6,8 @@ import '../../../data/models/product.dart';
 import '../more/add_product_page.dart';
 import '../cart/cart_page.dart';
 import '../../../providers/cart_provider.dart';
+import '../../../utils/format.dart';
+
 class SalesPage extends ConsumerWidget {
   const SalesPage({super.key});
 
