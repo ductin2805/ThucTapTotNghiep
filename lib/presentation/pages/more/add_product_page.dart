@@ -19,6 +19,13 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
   final _nameCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController(text: '0');
+  final _codeCtrl = TextEditingController();
+  final _barcodeCtrl = TextEditingController();
+  final _costPriceCtrl = TextEditingController();
+  final _unitCtrl = TextEditingController(text: 'Cái');
+  final _categoryCtrl = TextEditingController(text: 'Mặc định');
+  final _noteCtrl = TextEditingController();
+  bool _applyTax = false;
 
   final ImagePicker _picker = ImagePicker();
   String? _imgPath;
@@ -51,13 +58,28 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     if (_formKey.currentState!.validate()) {
       final name = _nameCtrl.text.trim();
 
-      // loại bỏ dấu phẩy để parse giá trị
       final rawPrice = _priceCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
       final price = double.tryParse(rawPrice) ?? 0;
 
+      final rawCost = _costPriceCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final costPrice = double.tryParse(rawCost) ?? 0;
+
       final stock = int.tryParse(_stockCtrl.text.trim()) ?? 0;
 
-      final p = Product(name: name, price: price, stock: stock, img: _imgPath);
+      final p = Product(
+        name: name,
+        price: price,
+        costPrice: costPrice,
+        stock: stock,
+        code: _codeCtrl.text.trim(),
+        barcode: _barcodeCtrl.text.trim(),
+        unit: _unitCtrl.text.trim(),
+        category: _categoryCtrl.text.trim(),
+        note: _noteCtrl.text.trim(),
+        tax: _applyTax ? 1 : 0,
+        img: _imgPath,
+      );
+
       await ref.read(productListProvider.notifier).add(p);
 
       if (mounted) Navigator.pop(context);
@@ -113,6 +135,64 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 decoration: const InputDecoration(labelText: 'Tên mặt hàng'),
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Nhập tên' : null,
+              ),
+              // mã mặt hàng
+              TextFormField(
+                controller: _codeCtrl,
+                decoration: const InputDecoration(labelText: 'Mã mặt hàng'),
+              ),
+
+              // barcode
+              TextFormField(
+                controller: _barcodeCtrl,
+                decoration: const InputDecoration(labelText: 'Barcode'),
+              ),
+
+              // giá nhập
+              // Giá nhập (VNĐ)
+              TextFormField(
+                controller: _costPriceCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    if (newValue.text.isEmpty) return newValue;
+                    final raw = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+                    final formatted = _currencyFormatter.format(int.parse(raw));
+                    return newValue.copyWith(
+                      text: formatted,
+                      selection: TextSelection.collapsed(offset: formatted.length),
+                    );
+                  }),
+                ],
+                decoration: const InputDecoration(labelText: 'Giá nhập (VNĐ)'),
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Nhập giá nhập' : null,
+              ),
+              // đơn vị tính
+              TextFormField(
+                controller: _unitCtrl,
+                decoration: const InputDecoration(labelText: 'Đơn vị tính'),
+              ),
+
+              // danh mục
+              TextFormField(
+                controller: _categoryCtrl,
+                decoration: const InputDecoration(labelText: 'Danh mục'),
+              ),
+
+              // áp dụng thuế
+              SwitchListTile(
+                value: _applyTax,
+                onChanged: (v) => setState(() => _applyTax = v),
+                title: const Text("Áp dụng thuế"),
+              ),
+
+              // ghi chú
+              TextFormField(
+                controller: _noteCtrl,
+                decoration: const InputDecoration(labelText: 'Ghi chú'),
+                maxLines: 2,
               ),
 
               // giá VNĐ

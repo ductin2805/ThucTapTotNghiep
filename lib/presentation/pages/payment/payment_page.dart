@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/db/app_database.dart';
+import '../../pages/invoices/invoice_detail_page.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
   final double totalAmount;
+  final List<Map<String, dynamic>> cartItems;
 
-  const PaymentPage({super.key, required this.totalAmount});
+
+  const PaymentPage({
+    super.key,
+    required this.totalAmount,
+    required this.cartItems,
+  });
 
   @override
   ConsumerState<PaymentPage> createState() => _PaymentPageState();
@@ -38,12 +45,34 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
     });
   }
 
-  Future<void> _savePayment() async {
+  Future<void> _savePayment(List<Map<String, dynamic>> cartItems) async {
     final db = AppDatabase.instance.db;
 
     String method = _tabController.index == 0 ? "cash" : "bank";
 
-    // Lưu thanh toán
+    // 1. Insert vào bảng invoices
+    final invoiceId = await db.insert("invoices", {
+      "code": "HD${DateTime.now().millisecondsSinceEpoch}", // sinh code đơn giản
+      "createdAt": DateTime.now().toIso8601String(),
+      "customer": "Khách lẻ", // hoặc lấy từ input
+      "total": widget.totalAmount,
+      "paid": paidAmount,
+      "debt": changeAmount < 0 ? -changeAmount : 0,
+      "method": method,
+    });
+
+    // 2. Insert chi tiết sản phẩm vào invoice_items
+    for (var item in cartItems) {
+      await db.insert("invoice_items", {
+        "invoice_id": invoiceId,
+        "product_id": item["id"], // hoặc productId
+        "name": item["name"],
+        "price": item["price"],
+        "quantity": item["quantity"],
+      });
+    }
+
+    // 3. (Tuỳ chọn) Insert vào bảng payments để lưu lịch sử thanh toán
     await db.insert("payments", {
       "total": widget.totalAmount,
       "paid": paidAmount,
@@ -58,18 +87,18 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
       const SnackBar(content: Text("Thanh toán thành công")),
     );
 
-    // ⚡ Đợi hết frame hiện tại rồi mới pop
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).pop(true); // trả kết quả về CartPage
-      }
-    });
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
+    // 4. Sau khi thanh toán thì mở hóa đơn chi tiết
+    // 👉 Khi đóng InvoiceDetailPage thì trả true về CartPage
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InvoiceDetailPage(invoiceId: invoiceId),
+      ),
+    ).then((_) {
+      Navigator.pop(context, true); // Trả về true cho CartPage
     });
   }
+
 
 
   @override
@@ -110,7 +139,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
                 backgroundColor: Colors.blue,
                 minimumSize: const Size(double.infinity, 50),
               ),
-              onPressed: _savePayment,
+              onPressed: () => _savePayment(widget.cartItems),
               child: const Text("Thanh toán"),
             ),
           ),

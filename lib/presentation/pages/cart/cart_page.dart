@@ -4,7 +4,7 @@ import '../../../providers/cart_provider.dart';
 import '../../../data/models/cart_product.dart';
 import '../../../providers/product_provider.dart';
 import '../../pages/payment/payment_page.dart';
-import '../../../utils/format.dart'; // ✅ dùng để format giá tiền
+import '../../../utils/format.dart'; // formatCurrency
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
@@ -28,7 +28,7 @@ class CartPage extends ConsumerWidget {
         children: [
           ListTile(
             title: const Text("Đơn hàng"),
-            subtitle: const Text("DH.250828.0001"),
+            subtitle: Text("DH.${DateTime.now().millisecondsSinceEpoch}"),
           ),
           ListTile(
             title: const Text("Khách hàng"),
@@ -118,7 +118,7 @@ class CartPage extends ConsumerWidget {
               _buildSummaryRow("Phụ phí", "0"),
               _buildSummaryRow("Ghi chú", "0"),
               _buildSummaryRow("Thuế", "0"),
-              _buildSummaryRow("Tổng tiền", formatCurrency(total), bold: true), // ✅
+              _buildSummaryRow("Tổng tiền", formatCurrency(total), bold: true),
             ],
           ),
           SafeArea(
@@ -137,16 +137,25 @@ class CartPage extends ConsumerWidget {
                     return;
                   }
 
-                  // ⚡ Điều hướng sang PaymentPage và chờ kết quả
+                  // ⚡ Truyền cartItems sang PaymentPage
+                  final cartItems = cart.map((c) => {
+                    "id": c.product.id,
+                    "name": c.product.name,
+                    "price": c.product.price,
+                    "quantity": c.quantity,
+                  }).toList();
+
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PaymentPage(totalAmount: total),
+                      builder: (_) => PaymentPage(
+                        totalAmount: total,
+                        cartItems: cartItems, // ✅ truyền sang
+                      ),
                     ),
                   );
 
                   if (result == true) {
-                    // chỉ clearCart ở đây
                     ref.read(cartProvider.notifier).clearCart();
                   }
                 },
