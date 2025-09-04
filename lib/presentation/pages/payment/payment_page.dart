@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/db/app_database.dart';
 import '../../pages/invoices/invoice_detail_page.dart';
+import '../../../utils/format.dart';
+import 'package:intl/intl.dart';
+import '../../../providers/cart_provider.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
   final double totalAmount;
   final List<Map<String, dynamic>> cartItems;
+
 
 
   const PaymentPage({
@@ -48,51 +52,78 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
   Future<void> _savePayment(List<Map<String, dynamic>> cartItems) async {
     final db = AppDatabase.instance.db;
 
+    // Lấy thông tin giỏ hàng từ provider
+    final cartState = ref.read(cartProvider);
+
     String method = _tabController.index == 0 ? "cash" : "bank";
 
-    // 1. Insert vào bảng invoices
+    // 1. Lấy số thứ tự lớn nhất hôm nay +1 để tạo code
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final result = await db.rawQuery(
+      'SELECT code FROM invoices WHERE createdAt >= ? AND createdAt < ? ORDER BY code DESC LIMIT 1',
+      [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+    );
+
+    int orderNum = 1;
+    if (result.isNotEmpty) {
+      final lastCode = result.first['code'] as String;
+      final parts = lastCode.split('.');
+      if (parts.length == 3) {
+        orderNum = int.tryParse(parts[2])! + 1;
+      }
+    }
+
+    // Tạo code kiểu DH.yyMMdd.0001
+    final code = "DH.${DateFormat('yyMMdd').format(today)}.${orderNum.toString().padLeft(4, '0')}";
+
+    // 2. Insert vào bảng invoices
     final invoiceId = await db.insert("invoices", {
-      "code": "HD${DateTime.now().millisecondsSinceEpoch}", // sinh code đơn giản
-      "createdAt": DateTime.now().toIso8601String(),
-      "customer": "Khách lẻ", // hoặc lấy từ input
+      "code": code,
+      "createdAt": today.toIso8601String(),
+      "customer": cartState.customer?.name ?? "Khách lẻ",
       "total": widget.totalAmount,
       "paid": paidAmount,
       "debt": changeAmount < 0 ? -changeAmount : 0,
       "method": method,
     });
 
-    // 2. Insert chi tiết sản phẩm vào invoice_items
+    // 3. Insert chi tiết sản phẩm vào invoice_items
     for (var item in cartItems) {
       await db.insert("invoice_items", {
         "invoice_id": invoiceId,
-        "product_id": item["id"], // hoặc productId
+        "product_id": item["id"],
         "name": item["name"],
         "price": item["price"],
         "quantity": item["quantity"],
       });
     }
 
-    // 3. (Tuỳ chọn) Insert vào bảng payments để lưu lịch sử thanh toán
+    // 4. Insert vào bảng payments
     await db.insert("payments", {
       "total": widget.totalAmount,
       "paid": paidAmount,
       "change": changeAmount >= 0 ? changeAmount : 0,
       "method": method,
-      "createdAt": DateTime.now().toIso8601String(),
+      "createdAt": today.toIso8601String(),
     });
 
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Thanh toán thành công")),
+      SnackBar(content: Text("Thanh toán thành công! Mã hóa đơn: $code")),
     );
 
-    // 4. Sau khi thanh toán thì mở hóa đơn chi tiết
-    // 👉 Khi đóng InvoiceDetailPage thì trả true về CartPage
+    // 5. Mở trang chi tiết hóa đơn
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => InvoiceDetailPage(invoiceId: invoiceId),
+        builder: (_) => InvoiceDetailPage(
+          invoiceId: invoiceId,
+          fromPayment: true,
+        ),
       ),
     ).then((_) {
       Navigator.pop(context, true); // Trả về true cho CartPage
@@ -101,11 +132,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
 
 
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Thành tiền ${widget.totalAmount.toStringAsFixed(0)}"),
+        title: Text("Thành tiền ${formatCurrency(widget.totalAmount)}"),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -120,15 +152,17 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
           const Text("Khách trả :", style: TextStyle(fontSize: 16)),
           const SizedBox(height: 8),
           Text(
-            paidAmount.toStringAsFixed(0),
+            formatCurrency(paidAmount), // ✅ format lại
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            "Tiền thừa: ${(paidAmount - widget.totalAmount) >= 0
-                ? (paidAmount - widget.totalAmount).toStringAsFixed(0)
-                : "0"}",
-            style: const TextStyle(fontSize: 16, color: Colors.black54),
+            "Tiền thừa: ${formatCurrency(paidAmount - widget.totalAmount)}", // ✅ format lại
+            style: TextStyle(
+              fontSize: 16,
+              color: (paidAmount - widget.totalAmount) < 0 ? Colors.red : Colors.black54,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const Spacer(),
           _buildNumberPad(),
@@ -137,6 +171,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
               ),
               onPressed: () => _savePayment(widget.cartItems),

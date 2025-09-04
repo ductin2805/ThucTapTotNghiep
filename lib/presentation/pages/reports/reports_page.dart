@@ -24,10 +24,57 @@ class _ReportsPageState extends State<ReportsPage> {
     _loadData();
   }
 
+  /// ✅ Trả về khoảng thời gian [start, end] theo filter
+  List<DateTime>? _getDateRange(String timeFilter) {
+    final now = DateTime.now();
+    DateTime start;
+    DateTime end;
+
+    switch (timeFilter) {
+      case "Hôm nay":
+        start = DateTime(now.year, now.month, now.day);
+        end = start.add(const Duration(days: 1));
+        break;
+      case "Hôm qua":
+        start = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 1));
+        end = DateTime(now.year, now.month, now.day);
+        break;
+      case "Tuần này":
+        start = now.subtract(Duration(days: now.weekday - 1));
+        end = start.add(const Duration(days: 7));
+        break;
+      case "Tuần trước":
+        end = now.subtract(Duration(days: now.weekday));
+        start = end.subtract(const Duration(days: 7));
+        break;
+      case "Tháng này":
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 1);
+        break;
+      case "Tháng trước":
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 1);
+        break;
+      default:
+        return null; // Khác => chưa xử lý
+    }
+    return [start, end];
+  }
+
   Future<void> _loadData() async {
     final db = AppDatabase.instance;
 
-    // chỉ cần 1 hàm duy nhất
+    final range = _getDateRange(selectedTime);
+    DateTime? start;
+    DateTime? end;
+
+    if (range != null) {
+      start = range[0];
+      end = range[1];
+    }
+
+    // ✅ truyền start, end, status
     final data = await db.getReportByFilter(selectedTime, selectedInvoice);
 
     setState(() => summary = data);
@@ -35,37 +82,37 @@ class _ReportsPageState extends State<ReportsPage> {
 
   Widget _buildStatCard(String title, String value,
       {Color color = Colors.black87}) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(6),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(value,
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 6),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54, fontSize: 14)),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 6),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54, fontSize: 13)),
+        ],
       ),
     );
   }
 
-  Widget _buildSection(String title, List<Widget> children) {
+  Widget _buildSection(String title, List<Widget> children,
+      {int crossAxis = 3}) {
     return Container(
       width: double.infinity,
       color: Colors.grey.shade100,
@@ -79,9 +126,13 @@ class _ReportsPageState extends State<ReportsPage> {
                   fontWeight: FontWeight.bold,
                   color: Colors.black87)),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          GridView.count(
+            crossAxisCount: crossAxis,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1.2,
             children: children,
           ),
         ],
@@ -89,10 +140,16 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
+  /// ✅ Mở trang filter
   Future<void> _openFilter() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const FilterPage()),
+      MaterialPageRoute(
+        builder: (_) => FilterPage(
+          initialTime: selectedTime,
+          initialInvoice: selectedInvoice,
+        ),
+      ),
     );
 
     if (result != null && mounted) {
@@ -100,8 +157,6 @@ class _ReportsPageState extends State<ReportsPage> {
         selectedTime = result["time"];
         selectedInvoice = result["invoice"];
       });
-
-      // gọi lại load data
       await _loadData();
     }
   }
@@ -120,8 +175,8 @@ class _ReportsPageState extends State<ReportsPage> {
           icon: const Icon(Icons.menu),
           onPressed: () {},
         ),
-        title:
-        const Text("Báo cáo", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Báo cáo",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -141,23 +196,16 @@ class _ReportsPageState extends State<ReportsPage> {
               children: [
                 Text(
                   "$selectedInvoice : ",
-                  style:
-                  const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
                 ),
-
-                // chữ thời gian có thể bấm
                 GestureDetector(
                   onTap: _openFilter,
                   child: Text(
                     selectedTime,
-                    style: const TextStyle(
-                        fontSize: 16, color: Colors.orange),
+                    style: const TextStyle(fontSize: 16, color: Colors.orange),
                   ),
                 ),
-
                 const Spacer(),
-
-                // icon filter
                 IconButton(
                   icon: const Icon(Icons.filter_alt_outlined,
                       color: Colors.black54),
@@ -174,12 +222,16 @@ class _ReportsPageState extends State<ReportsPage> {
           // 2 ô lợi nhuận / doanh thu
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 1.4,
               children: [
-                _buildStatCard(
-                    "Lợi nhuận", formatCurrency(summary!.profit)),
-                _buildStatCard(
-                    "Doanh thu", formatCurrency(summary!.revenue)),
+                _buildStatCard("Lợi nhuận", formatCurrency(summary!.profit)),
+                _buildStatCard("Doanh thu", formatCurrency(summary!.revenue)),
               ],
             ),
           ),
@@ -189,8 +241,8 @@ class _ReportsPageState extends State<ReportsPage> {
           // Phần hóa đơn
           _buildSection("Hóa đơn", [
             _buildStatCard("Số hóa đơn", "${summary!.invoiceCount}"),
-            _buildStatCard("Giá trị hóa đơn",
-                formatCurrency(summary!.invoiceValue)),
+            _buildStatCard(
+                "Giá trị hóa đơn", formatCurrency(summary!.invoiceValue)),
             _buildStatCard("Tiền thuế", formatCurrency(summary!.tax)),
             _buildStatCard("Giảm giá", formatCurrency(summary!.discount)),
             _buildStatCard("Tiền bán", formatCurrency(summary!.revenue)),
@@ -204,7 +256,7 @@ class _ReportsPageState extends State<ReportsPage> {
             _buildStatCard("Tiền mặt", formatCurrency(summary!.cash)),
             _buildStatCard("Ngân hàng", formatCurrency(summary!.bank)),
             _buildStatCard("Khách nợ", formatCurrency(summary!.debt)),
-          ]),
+          ], crossAxis: 3),
         ],
       ),
     );

@@ -34,17 +34,19 @@ class ProductTile extends StatelessWidget {
 
       // ✅ dùng formatCurrency cho giá
       subtitle: Text(
-        "Giá: ${formatCurrency(product.price)}   •  Tồn: ${product.stock}",
+        "Giá: ${formatCurrency(product.price)} • Tồn: ${product.stock}"" " "${product.unit}",
         style: const TextStyle(color: Colors.black54),
       ),
 
       onTap: onTap,
 
       // nút xoá
-      trailing: IconButton(
+      trailing: onDelete != null
+          ? IconButton(
         icon: const Icon(Icons.delete, color: Colors.red),
         onPressed: onDelete,
-      ),
+        )
+          : null,
     );
   }
 }

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/db/app_database.dart';
 import '../../pages/invoices/invoice_detail_page.dart';
-import '../filter/filter_page.dart'; // ✅ thêm filter page
+import '../filter/filter_page.dart';
+import '../../../utils/format.dart';
 
 class InvoicesPage extends StatefulWidget {
   const InvoicesPage({super.key});
@@ -12,9 +13,9 @@ class InvoicesPage extends StatefulWidget {
 }
 
 class _InvoicesPageState extends State<InvoicesPage> {
-  // biến lưu filter
   String selectedTime = "Hôm nay";
   String selectedInvoice = "Tất cả";
+
 
   late Future<List<Map<String, dynamic>>> _futureInvoices;
 
@@ -24,72 +25,68 @@ class _InvoicesPageState extends State<InvoicesPage> {
     _futureInvoices = _loadInvoices();
   }
 
-  /// ✅ Hàm hỗ trợ: trả về [start, end] theo filter thời gian
   List<DateTime>? _getDateRange(String timeFilter) {
     final now = DateTime.now();
-    DateTime start;
-    DateTime end;
-
     switch (timeFilter) {
       case "Hôm nay":
-        start = DateTime(now.year, now.month, now.day);
-        end = start.add(const Duration(days: 1));
-        break;
+        return [DateTime(now.year, now.month, now.day), DateTime(now.year, now.month, now.day + 1)];
       case "Hôm qua":
-        start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
-        end = DateTime(now.year, now.month, now.day);
-        break;
+        return [DateTime(now.year, now.month, now.day - 1), DateTime(now.year, now.month, now.day)];
       case "Tuần này":
-        start = now.subtract(Duration(days: now.weekday - 1));
-        end = start.add(const Duration(days: 7));
-        break;
+        final start = now.subtract(Duration(days: now.weekday - 1));
+        return [start, start.add(const Duration(days: 7))];
       case "Tuần trước":
-        end = now.subtract(Duration(days: now.weekday));
-        start = end.subtract(const Duration(days: 7));
-        break;
+        final end = now.subtract(Duration(days: now.weekday));
+        return [end.subtract(const Duration(days: 7)), end];
       case "Tháng này":
-        start = DateTime(now.year, now.month, 1);
-        end = DateTime(now.year, now.month + 1, 1);
-        break;
+        return [DateTime(now.year, now.month, 1), DateTime(now.year, now.month + 1, 1)];
       case "Tháng trước":
-        start = DateTime(now.year, now.month - 1, 1);
-        end = DateTime(now.year, now.month, 1);
-        break;
+        return [DateTime(now.year, now.month - 1, 1), DateTime(now.year, now.month, 1)];
       default:
-        return null; // "Khác" => chưa làm
+        return null;
     }
-    return [start, end];
   }
 
   Future<List<Map<String, dynamic>>> _loadInvoices() async {
     final db = AppDatabase.instance.db;
 
-    // Tạo điều kiện where
     final whereClauses = <String>[];
     final whereArgs = <dynamic>[];
 
-    // lọc theo thời gian
     final range = _getDateRange(selectedTime);
     if (range != null) {
-      whereClauses.add("createdAt >= ? AND createdAt < ?");
+      whereClauses.add("i.createdAt >= ? AND i.createdAt < ?");
       whereArgs.add(range[0].toIso8601String());
       whereArgs.add(range[1].toIso8601String());
     }
 
-    // lọc theo trạng thái hóa đơn
     if (selectedInvoice != "Tất cả") {
-      whereClauses.add("status = ?");
+      whereClauses.add("i.method = ?");
       whereArgs.add(selectedInvoice);
     }
 
-    final rows = await db.query(
-      "payments",
-      orderBy: "createdAt DESC",
-      where: whereClauses.isEmpty ? null : whereClauses.join(" AND "),
-      whereArgs: whereArgs.isEmpty ? null : whereArgs,
-    );
+    final whereString =
+    whereClauses.isEmpty ? "" : "WHERE ${whereClauses.join(" AND ")}";
 
-    return rows;
+    final sql = '''
+    SELECT 
+      i.id,
+      i.code,
+      i.createdAt,
+      COALESCE(c.name, i.customer) AS customerName,
+      i.total,
+      i.paid,
+      i.debt,
+      i.method,
+      GROUP_CONCAT(it.name || ' x' || it.quantity, ', ') AS items
+    FROM invoices i
+    LEFT JOIN customers c ON i.customer = c.id
+    LEFT JOIN invoice_items it ON i.id = it.invoice_id
+    $whereString
+    GROUP BY i.id
+    ORDER BY i.createdAt DESC
+  ''';
+    return await db.rawQuery(sql, whereArgs);
   }
 
   Future<void> _openFilter() async {
@@ -107,35 +104,20 @@ class _InvoicesPageState extends State<InvoicesPage> {
       setState(() {
         selectedTime = result["time"];
         selectedInvoice = result["invoice"];
-        _futureInvoices = _loadInvoices(); // gọi lại load data theo filter
+        _futureInvoices = _loadInvoices();
       });
     }
+
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat =
-    NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0);
-
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {},
-        ),
-        title: const Text(
-          "Hóa đơn",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Hóa đơn", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _openFilter, // ✅ mở filter
-          ),
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.filter_list), onPressed: _openFilter),
         ],
       ),
       body: Column(
@@ -147,23 +129,14 @@ class _InvoicesPageState extends State<InvoicesPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                Text(
-                  "$selectedInvoice : ",
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
-                ),
+                Text("$selectedInvoice : ", style: const TextStyle(fontSize: 16)),
                 GestureDetector(
                   onTap: _openFilter,
-                  child: Text(
-                    selectedTime,
-                    style: const TextStyle(fontSize: 16, color: Colors.orange),
-                  ),
+                  child: Text(selectedTime, style: const TextStyle(fontSize: 16, color: Colors.orange)),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.filter_alt_outlined,
-                      color: Colors.black54),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.filter_alt_outlined, color: Colors.black54),
                   onPressed: _openFilter,
                 ),
               ],
@@ -179,101 +152,65 @@ class _InvoicesPageState extends State<InvoicesPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(
-                      child: Text("Lỗi: ${snapshot.error.toString()}"));
+                  return Center(child: Text("Lỗi: ${snapshot.error}"));
                 }
+
                 final invoices = snapshot.data ?? [];
 
                 if (invoices.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.insert_drive_file_outlined,
-                            size: 100, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          "Không có hóa đơn nào",
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
-                        ),
-                      ],
+                  return const Center(
+                    child: Text(
+                      "Không có hóa đơn nào",
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
                   );
+                }
+
+                // Console log để xem mã hóa đơn và thông tin
+                for (var invoice in invoices) {
+                  final createdAt = DateTime.tryParse(invoice['createdAt'] ?? '') ?? DateTime.now();
+                  final code = invoice['code'] ??
+                      "DH.${DateFormat('yyMMdd').format(createdAt)}.${(invoice['id'] ?? 0).toString().padLeft(4, '0')}";
+
+                  print("Invoice ID: ${invoice['id']}, Code: $code, Customer: ${invoice['customerName']}, Total: ${invoice['total']}");
                 }
 
                 return ListView.builder(
                   itemCount: invoices.length,
                   itemBuilder: (context, index) {
                     final invoice = invoices[index];
-                    final createdAt = DateTime.tryParse(
-                        invoice["createdAt"] as String? ?? "") ??
-                        DateTime.now();
+                    final createdAt = DateTime.tryParse(invoice["createdAt"] ?? "") ?? DateTime.now();
+                    final customerName = invoice["customerName"] ?? "Khách lẻ";
 
-                    return InkWell(
+                    return ListTile(
+                      leading: const Icon(Icons.account_balance_wallet_outlined, color: Colors.teal, size: 32),
+                      title: Text(
+                        "DH.${DateFormat('yyMMdd').format(createdAt)}.${(invoice["id"] ?? 0).toString().padLeft(4, '0')}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 14, color: Colors.black54),
+                          const SizedBox(width: 4),
+                          Text(DateFormat("HH:mm").format(createdAt), style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                          const SizedBox(width: 12),
+                          Text(customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(formatCurrency(invoice["total"] ?? 0),
+                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                          const Icon(Icons.chevron_right, color: Colors.black54),
+                        ],
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => InvoiceDetailPage(
-                                invoiceId: invoice["id"] as int),
-                          ),
+                          MaterialPageRoute(builder: (_) => InvoiceDetailPage(invoiceId: invoice["id"] as int)),
                         );
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Colors.black12),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.account_balance_wallet_outlined,
-                                color: Colors.teal, size: 32),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "DH.${DateFormat('yyMMdd').format(createdAt)}.${invoice["id"].toString().padLeft(4, '0')}",
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(invoice["status"] ?? "Không rõ",
-                                          style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.black87)),
-                                      const SizedBox(width: 8),
-                                      const Icon(Icons.access_time,
-                                          size: 14, color: Colors.black54),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        DateFormat("HH:mm").format(createdAt),
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black54),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              currencyFormat.format(invoice["total"] ?? 0),
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w500),
-                            ),
-                            const Icon(Icons.chevron_right,
-                                color: Colors.black54),
-                          ],
-                        ),
-                      ),
                     );
                   },
                 );

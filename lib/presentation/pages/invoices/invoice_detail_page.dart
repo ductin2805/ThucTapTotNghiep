@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../data/db/app_database.dart';
+import '../../../providers/cart_provider.dart';
+import '../home_page.dart';
 
-class InvoiceDetailPage extends StatefulWidget {
+class InvoiceDetailPage extends ConsumerStatefulWidget {
   final int invoiceId;
+  final bool fromPayment; // ✅ thêm cờ để biết có phải từ thanh toán hay không
 
-  const InvoiceDetailPage({super.key, required this.invoiceId});
+
+  const InvoiceDetailPage({
+    super.key,
+    required this.invoiceId,
+    this.fromPayment = false,
+  });
 
   @override
-  State<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
+  ConsumerState<InvoiceDetailPage> createState() => _InvoiceDetailPageState();
 }
 
-class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
+class _InvoiceDetailPageState extends ConsumerState<InvoiceDetailPage> {
   late Future<Map<String, dynamic>> _futureInvoice;
 
   @override
@@ -23,7 +32,6 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
   Future<Map<String, dynamic>> _loadInvoiceDetail() async {
     final db = AppDatabase.instance.db;
 
-    // ⚡ lấy hóa đơn từ bảng invoices
     final invoiceRows = await db.query(
       "invoices",
       where: "id = ?",
@@ -35,17 +43,29 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
 
     final invoice = invoiceRows.first;
 
-    // ⚡ lấy danh sách sản phẩm từ bảng invoice_items
     final items = await db.query(
       "invoice_items",
       where: "invoice_id = ?",
       whereArgs: [widget.invoiceId],
     );
 
-    return {
-      "invoice": invoice,
-      "items": items,
-    };
+    return {"invoice": invoice, "items": items};
+  }
+
+  /// ✅ Quay lại trang Bán hàng
+  void _goToSalePage() {
+    if (widget.fromPayment) {
+      // chỉ clear giỏ nếu đi từ PaymentPage
+      ref.read(cartProvider.notifier).clearCart();
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HomePage(initialIndex: 0), // vào tab Bán hàng
+      ),
+          (route) => false,
+    );
   }
 
   @override
@@ -54,7 +74,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
 
     return WillPopScope(
       onWillPop: () async {
-        Navigator.pop(context, true); // ✅ back trả về true
+        _goToSalePage();
         return false;
       },
       child: Scaffold(
@@ -62,9 +82,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
           title: const Text("Chi tiết hóa đơn"),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.pop(context, true);
-            },
+            onPressed: _goToSalePage,
           ),
         ),
         body: FutureBuilder<Map<String, dynamic>>(
@@ -90,41 +108,37 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ⚡ Thông tin hóa đơn
-                        Text("Đơn hàng: DH.${invoice["id"]}",
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Đơn hàng: DH.${invoice["id"]}", style: const TextStyle(fontWeight: FontWeight.bold)),
                         Text("Thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(createdAt)}"),
-                        Text("Khách hàng: ${invoice["customer"]}",
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Khách hàng: ${invoice["customer"]}", style: const TextStyle(fontWeight: FontWeight.bold)),
                         const Divider(height: 32),
 
-                        // ⚡ Danh sách sản phẩm
+                        // Danh sách sản phẩm
                         ...items.map((item) => ListTile(
                           title: Text(item["name"] ?? ""),
                           subtitle: Text(
-                            "${NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0).format(item["price"])} x ${item["quantity"]}",
+                            "${currency.format(item["price"])} x ${item["quantity"]}",
                           ),
                           trailing: Text(
-                            NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0)
-                                .format(item["price"] * item["quantity"]),
+                            currency.format(item["price"] * item["quantity"]),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         )),
 
                         const Divider(height: 32),
 
-                        // ⚡ Tổng cộng
+                        // Tổng cộng
                         Align(
                           alignment: Alignment.centerRight,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text("Chiết khấu: 0"),
-                              Text("Thuế: 0"),
-                              Text("Khách trả: ${NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0).format(invoice["paid"])}"),
-                              Text("Khách nợ: ${NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0).format(invoice["debt"] ?? 0)}"),
+                              const Text("Chiết khấu: 0"),
+                              const Text("Thuế: 0"),
+                              Text("Khách trả: ${currency.format(invoice["paid"])}"),
+                              Text("Khách nợ: ${currency.format(invoice["debt"] ?? 0)}"),
                               Text(
-                                "Tổng tiền: ${NumberFormat.currency(locale: 'vi_VN', symbol: '', decimalDigits: 0).format(invoice["total"])}",
+                                "Tổng tiền: ${currency.format(invoice["total"])}",
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                             ],
@@ -135,7 +149,7 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
                   ),
                 ),
 
-                // ⚡ Nút hành động (Xong / In hóa đơn)
+                // Nút hành động
                 SafeArea(
                   child: Row(
                     children: [
@@ -143,11 +157,10 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey,
+                            foregroundColor: Colors.white,
                             minimumSize: const Size(double.infinity, 50),
                           ),
-                          onPressed: () {
-                            Navigator.pop(context, true); // đóng + clear giỏ
-                          },
+                          onPressed: _goToSalePage,
                           child: const Text("Xong"),
                         ),
                       ),
@@ -156,10 +169,10 @@ class _InvoiceDetailPageState extends State<InvoiceDetailPage> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.lightBlue,
+                            foregroundColor: Colors.white,
                             minimumSize: const Size(double.infinity, 50),
                           ),
                           onPressed: () {
-                            // ⚡ TODO: Gọi hàm in / xuất PDF
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("In hóa đơn...")),
                             );

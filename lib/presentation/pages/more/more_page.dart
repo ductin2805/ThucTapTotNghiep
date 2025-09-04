@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'add_product_page.dart'; // đổi path cho đúng vị trí file AddProductPage
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/product_list_page.dart';
+import 'account_page.dart';
+import 'customer_list_page.dart';
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
 
@@ -25,20 +27,38 @@ class MorePage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          _buildMenuItem(Icons.person_outline, "Tài khoản"),
+          _buildMenuItem(
+            Icons.person_outline,
+            "Tài khoản",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AccountPage()),
+              );
+            },
+          ),
           _buildMenuItem(
             Icons.inventory_2_outlined,
             "Mặt hàng",
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AddProductPage()),
+                MaterialPageRoute(builder: (_) => ProductListPage()),
               );
             },
           ),
           _buildMenuItem(Icons.folder_outlined, "Danh mục"),
           _buildMenuItem(Icons.speed_outlined, "Đơn vị tính"),
-          _buildMenuItem(Icons.people_outline, "Khách hàng"),
+          _buildMenuItem(
+            Icons.people_outline,
+            "Khách hàng",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CustomerListPage()),
+              );
+            },
+          ),
           _buildMenuItem(Icons.local_shipping_outlined, "Nhà cung cấp"),
           _buildMenuItem(Icons.print_outlined, "Máy in", color: Colors.red),
 

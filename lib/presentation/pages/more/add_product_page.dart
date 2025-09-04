@@ -38,6 +38,12 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     _nameCtrl.dispose();
     _priceCtrl.dispose();
     _stockCtrl.dispose();
+    _codeCtrl.dispose();
+    _barcodeCtrl.dispose();
+    _costPriceCtrl.dispose();
+    _unitCtrl.dispose();
+    _categoryCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
   }
 
@@ -94,7 +100,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
         actions: [
           TextButton(
             onPressed: _save,
-            child: const Text('Lưu', style: TextStyle(color: Colors.white)),
+            child: const Text('Lưu', style: TextStyle(color: Colors.blue)),
           )
         ],
       ),
@@ -129,27 +135,29 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               ),
               const SizedBox(height: 18),
 
-              // tên sản phẩm
+              // tên sản phẩm (gõ tiếng Việt thoải mái)
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(labelText: 'Tên mặt hàng'),
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Nhập tên' : null,
               ),
+
               // mã mặt hàng
               TextFormField(
                 controller: _codeCtrl,
                 decoration: const InputDecoration(labelText: 'Mã mặt hàng'),
               ),
 
-              // barcode
+              // barcode (chỉ số)
               TextFormField(
                 controller: _barcodeCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(labelText: 'Barcode'),
               ),
 
-              // giá nhập
-              // Giá nhập (VNĐ)
+              // giá nhập (VNĐ)
               TextFormField(
                 controller: _costPriceCtrl,
                 keyboardType: TextInputType.number,
@@ -161,7 +169,8 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                     final formatted = _currencyFormatter.format(int.parse(raw));
                     return newValue.copyWith(
                       text: formatted,
-                      selection: TextSelection.collapsed(offset: formatted.length),
+                      selection:
+                      TextSelection.collapsed(offset: formatted.length),
                     );
                   }),
                 ],
@@ -169,6 +178,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Nhập giá nhập' : null,
               ),
+
               // đơn vị tính
               TextFormField(
                 controller: _unitCtrl,
@@ -195,7 +205,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 maxLines: 2,
               ),
 
-              // giá VNĐ
+              // giá bán VNĐ
               TextFormField(
                 controller: _priceCtrl,
                 keyboardType: TextInputType.number,
@@ -204,12 +214,11 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                   TextInputFormatter.withFunction((oldValue, newValue) {
                     if (newValue.text.isEmpty) return newValue;
                     final raw = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-                    final formatted =
-                    _currencyFormatter.format(int.parse(raw));
+                    final formatted = _currencyFormatter.format(int.parse(raw));
                     return newValue.copyWith(
                       text: formatted,
-                      selection: TextSelection.collapsed(
-                          offset: formatted.length),
+                      selection:
+                      TextSelection.collapsed(offset: formatted.length),
                     );
                   }),
                 ],
@@ -222,9 +231,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _stockCtrl,
                 keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(labelText: 'Số lượng tồn'),
               ),
 

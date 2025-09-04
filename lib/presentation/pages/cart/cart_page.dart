@@ -1,26 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/cart_provider.dart';
-import '../../../data/models/cart_product.dart';
 import '../../../providers/product_provider.dart';
+import '../../../data/models/cart_product.dart';
 import '../../pages/payment/payment_page.dart';
-import '../../../utils/format.dart'; // formatCurrency
+import '../../../utils/format.dart';
+import 'select_customer_page.dart';
+import 'package:intl/intl.dart';
 
 class CartPage extends ConsumerWidget {
   const CartPage({super.key});
 
+  // Hàm tạo mã đơn hàng
+  String generateOrderId(int orderNumber) {
+    final now = DateTime.now();
+    final y = now.year % 100;        // 2 số cuối của năm
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final datePart = "$y$m$d";
+
+    // orderNumber chạy tăng dần trong ngày
+    final numPart = orderNumber.toString().padLeft(4, '0');
+
+    return "DH.$datePart.$numPart";
+  }
+
+  // Lấy số thứ tự đơn hàng hôm nay dựa trên cart hoặc DB
+  int getOrderNumber(List<CartProduct> cart) {
+    // Ví dụ đơn giản: dùng số lượng sản phẩm trong giỏ +1
+    return cart.length + 1;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<CartProduct> cart = ref.watch(cartProvider);
-    final total = ref.read(cartProvider.notifier).total;
+    final cartState = ref.watch(cartProvider);
+    final cart = cartState.items;
+    final total = cartState.total;
+    final customer = cartState.customer;
+
+    // Tạo mã đơn hàng tự động
+    final orderNumber = getOrderNumber(cart);
+    final orderId = generateOrderId(orderNumber);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Đơn hàng"),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: customer?.name ?? "Khách hàng",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SelectCustomerPage()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline),
-            onPressed: () => ref.read(cartProvider.notifier).clearCart(),
+            onPressed: () async {
+              final cart = ref.read(cartProvider).items;
+              for (final item in cart) {
+                final product = await ref.read(productListProvider.notifier).getById(item.product.id!);
+                if (product != null) {
+                  await ref.read(productListProvider.notifier)
+                      .updateStock(product.id!, product.stock + item.quantity);
+                  await ref.read(productListProvider.notifier).reloadStock(product.id!);
+                }
+              }
+              ref.read(cartProvider.notifier).clearCart();
+            },
           )
         ],
       ),
@@ -28,11 +77,11 @@ class CartPage extends ConsumerWidget {
         children: [
           ListTile(
             title: const Text("Đơn hàng"),
-            subtitle: Text("DH.${DateTime.now().millisecondsSinceEpoch}"),
+            subtitle: Text(orderId), // dùng mã đơn hàng tăng dần
           ),
           ListTile(
             title: const Text("Khách hàng"),
-            subtitle: const Text("Khách lẻ"),
+            subtitle: Text(customer?.name ?? "Khách lẻ"),
           ),
           const Divider(),
           Expanded(
@@ -56,48 +105,41 @@ class CartPage extends ConsumerWidget {
                 final item = cart[i];
                 return ListTile(
                   title: Text(item.product.name),
-                  subtitle: Text(
-                    "${formatCurrency(item.product.price)} x ${item.quantity}",
-                  ),
+                  subtitle: Text("${formatCurrency(item.product.price)} x ${item.quantity}"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // nút trừ
                       IconButton(
                         icon: const Icon(Icons.remove_circle_outline),
                         onPressed: () async {
-                          if (item.quantity > 1) {
-                            // Giảm trong giỏ
-                            await ref.read(cartProvider.notifier)
-                                .updateQuantity(item.id!, item.quantity - 1);
-
-                            // Tăng lại tồn kho
-                            await ref.read(productListProvider.notifier)
-                                .updateStock(item.product.id!, item.product.stock + 1);
-                          } else {
-                            // Xóa khỏi giỏ
-                            await ref.read(cartProvider.notifier).removeFromCart(item.id!);
-
-                            // Trả hàng về tồn kho
-                            await ref.read(productListProvider.notifier)
-                                .updateStock(item.product.id!, item.product.stock + 1);
+                          final product = await ref.read(productListProvider.notifier).getById(item.product.id!);
+                          if (product != null) {
+                            if (item.quantity > 1) {
+                              await ref.read(productListProvider.notifier)
+                                  .updateStock(product.id!, product.stock + 1);
+                              await ref.read(cartProvider.notifier)
+                                  .updateQuantity(item.id!, item.quantity - 1);
+                              await ref.read(productListProvider.notifier).reloadStock(product.id!);
+                            } else {
+                              await ref.read(cartProvider.notifier).removeFromCart(item.id!);
+                              await ref.read(productListProvider.notifier)
+                                  .updateStock(product.id!, product.stock + 1);
+                              await ref.read(productListProvider.notifier).reloadStock(product.id!);
+                            }
                           }
                         },
                       ),
-
                       Text("${item.quantity}"),
-
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline),
                         onPressed: () async {
-                          if (item.product.stock > 0) {
-                            // Tăng trong giỏ
+                          final product = await ref.read(productListProvider.notifier).getById(item.product.id!);
+                          if (product != null && product.stock > 0) {
+                            await ref.read(productListProvider.notifier)
+                                .updateStock(product.id!, product.stock - 1);
                             await ref.read(cartProvider.notifier)
                                 .updateQuantity(item.id!, item.quantity + 1);
-
-                            // Giảm tồn kho
-                            await ref.read(productListProvider.notifier)
-                                .updateStock(item.product.id!, item.product.stock - 1);
+                            await ref.read(productListProvider.notifier).reloadStock(product.id!);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Hết hàng trong kho")),
@@ -127,6 +169,7 @@ class CartPage extends ConsumerWidget {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.lightBlue,
+                  foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
                 ),
                 onPressed: () async {
@@ -137,7 +180,6 @@ class CartPage extends ConsumerWidget {
                     return;
                   }
 
-                  // ⚡ Truyền cartItems sang PaymentPage
                   final cartItems = cart.map((c) => {
                     "id": c.product.id,
                     "name": c.product.name,
@@ -150,7 +192,7 @@ class CartPage extends ConsumerWidget {
                     MaterialPageRoute(
                       builder: (_) => PaymentPage(
                         totalAmount: total,
-                        cartItems: cartItems, // ✅ truyền sang
+                        cartItems: cartItems,
                       ),
                     ),
                   );

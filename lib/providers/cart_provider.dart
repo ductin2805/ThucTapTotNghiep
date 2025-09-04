@@ -1,19 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/cart_product.dart';
+import '../data/models/customer.dart';
 import '../data/repositories/cart_repository.dart';
+import 'cart_state.dart';
 
-/// StateNotifier quản lý danh sách sản phẩm trong giỏ hàng
-class CartNotifier extends StateNotifier<List<CartProduct>> {
+class CartNotifier extends StateNotifier<CartState> {
   final CartRepository _repo = CartRepository();
 
-  CartNotifier() : super([]) {
+  CartNotifier() : super(CartState(items: [])) {
     loadCart();
   }
 
   /// Load giỏ hàng từ repository
   Future<void> loadCart() async {
     final items = await _repo.getCartProducts();
-    state = items;
+    state = state.copyWith(items: items);
   }
 
   /// Thêm sản phẩm vào giỏ
@@ -37,15 +38,18 @@ class CartNotifier extends StateNotifier<List<CartProduct>> {
   /// Xóa toàn bộ giỏ hàng (dùng sau thanh toán)
   Future<void> clearCart() async {
     await _repo.clearCart();
-    await loadCart();
+    state = CartState(items: []); // reset cả giỏ lẫn khách hàng
   }
 
-  /// Tính tổng tiền
-  double get total => state.fold(0, (sum, item) => sum + item.total);
+  /// Gắn khách hàng vào giỏ
+  void setCustomer(Customer? customer) {
+    state = state.copyWith(customer: customer);
+  }
 }
 
-/// Provider cho giỏ hàng
 final cartProvider =
-StateNotifierProvider<CartNotifier, List<CartProduct>>((ref) {
+StateNotifierProvider<CartNotifier, CartState>((ref) {
   return CartNotifier();
-});
+})
+
+;

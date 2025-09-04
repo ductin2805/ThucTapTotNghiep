@@ -11,6 +11,7 @@ class Product {
   final int tax;            // 0 = không áp dụng, 1 = có áp dụng
   final String? note;       // ghi chú
   final String? img;        // ảnh
+  bool isFavorite;
 
   Product({
     this.id,
@@ -25,6 +26,7 @@ class Product {
     this.tax = 0,
     this.note,
     this.img,
+    this.isFavorite = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -58,6 +60,39 @@ class Product {
       tax: map['tax'] ?? 0,
       note: map['note'],
       img: map['img'],
+    );
+  }
+
+  /// ✅ Hàm copyWith để cập nhật các field cần thay đổi
+  Product copyWith({
+    int? id,
+    String? name,
+    String? code,
+    String? barcode,
+    double? price,
+    double? costPrice,
+    int? stock,
+    String? unit,
+    String? category,
+    int? tax,
+    String? note,
+    String? img,
+    bool? isFavorite,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      code: code ?? this.code,
+      barcode: barcode ?? this.barcode,
+      price: price ?? this.price,
+      costPrice: costPrice ?? this.costPrice,
+      stock: stock ?? this.stock,
+      unit: unit ?? this.unit,
+      category: category ?? this.category,
+      tax: tax ?? this.tax,
+      note: note ?? this.note,
+      img: img ?? this.img,
+      isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 }
