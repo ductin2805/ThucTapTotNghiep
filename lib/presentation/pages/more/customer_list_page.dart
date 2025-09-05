@@ -21,7 +21,6 @@ class _CustomerListPageState extends State<CustomerListPage> {
   }
 
   void _load() async {
-    await repo.ensureDefaultCustomer(); // đảm bảo có khách lẻ trong DB
     final data = await repo.fetchCustomers();
     setState(() => customers = data);
   }

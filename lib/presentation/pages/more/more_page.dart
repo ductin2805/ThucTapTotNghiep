@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/category_list_page.dart';
 import 'package:thuc_tap_tot_nghiep/presentation/pages/more/product_list_page.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/supplier_list_page.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/unit_list_page.dart';
 import 'account_page.dart';
 import 'customer_list_page.dart';
 class MorePage extends StatelessWidget {
@@ -47,8 +50,26 @@ class MorePage extends StatelessWidget {
               );
             },
           ),
-          _buildMenuItem(Icons.folder_outlined, "Danh mục"),
-          _buildMenuItem(Icons.speed_outlined, "Đơn vị tính"),
+          _buildMenuItem(Icons.folder_outlined,
+              "Danh mục",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CategoryListPage()),
+              );
+            },
+          ),
+
+          _buildMenuItem(Icons.speed_outlined,
+              "Đơn vị tính",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UnitListPage()),
+              );
+            },
+          ),
+
           _buildMenuItem(
             Icons.people_outline,
             "Khách hàng",
@@ -59,7 +80,16 @@ class MorePage extends StatelessWidget {
               );
             },
           ),
-          _buildMenuItem(Icons.local_shipping_outlined, "Nhà cung cấp"),
+          _buildMenuItem(Icons.local_shipping_outlined,
+              "Nhà cung cấp",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SupplierListPage()),
+              );
+            },
+          ),
+
           _buildMenuItem(Icons.print_outlined, "Máy in", color: Colors.red),
 
           const Divider(thickness: 8, color: Color(0xFFF2F2F2)),

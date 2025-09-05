@@ -21,7 +21,7 @@ class AppDatabase {
 
     _db = await openDatabase(
       path,
-      version: 9, // 🔥 tăng version lên
+      version: 12, // 🔥 tăng version lên
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -47,7 +47,7 @@ class AppDatabase {
         costPrice REAL DEFAULT 0,
         stock INTEGER NOT NULL,
         unit TEXT DEFAULT 'Cái',
-        category TEXT DEFAULT 'Mặc định',
+        categoryId INTEGER,
         tax INTEGER DEFAULT 0,
         note TEXT,
         img TEXT
@@ -135,6 +135,36 @@ class AppDatabase {
         address TEXT,
         note TEXT,
         imagePath TEXT
+      )
+    ''');
+    // bảng danh mục sản phẩm
+    await db.execute('''
+      CREATE TABLE categories(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        parentId INTEGER,
+        FOREIGN KEY(parentId) REFERENCES categories(id)
+      )
+    ''');
+    // bảng đơn vị sản phẩm
+    await db.execute('''
+      CREATE TABLE units(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,     
+        description TEXT        
+      )
+    ''');
+    // bảng nhà cung cấp
+    await db.execute('''
+      CREATE TABLE suppliers(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        note TEXT,
+        createdAt TEXT NOT NULL
       )
     ''');
   }
@@ -231,6 +261,42 @@ class AppDatabase {
       await db.execute("ALTER TABLE invoices ADD COLUMN tax REAL DEFAULT 0");
       await db.execute("ALTER TABLE invoices ADD COLUMN discount REAL DEFAULT 0");
       await db.execute("ALTER TABLE invoices ADD COLUMN fee REAL DEFAULT 0");
+    }
+    if (oldVersion < 10) {
+      await db.execute('''
+    CREATE TABLE IF NOT EXISTS categories(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      parentId INTEGER,
+      FOREIGN KEY(parentId) REFERENCES categories(id)
+    )
+  ''');
+
+      // Thêm cột categoryId vào bảng products
+      await db.execute("ALTER TABLE products ADD COLUMN categoryId INTEGER");
+    }
+    if (oldVersion < 11) {
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS units(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT
+      )
+    ''');
+      }
+    if (oldVersion < 12) {
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS suppliers(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        note TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
     }
   }
 }

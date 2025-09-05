@@ -24,8 +24,8 @@ class _ProductEditPageState extends State<ProductEditPage> {
   late TextEditingController _costPrice;
   late TextEditingController _stock;
   late TextEditingController _unit;
-  late TextEditingController _category;
   late TextEditingController _note;
+  late TextEditingController _categoryId;
 
   bool _tax = false;
   String? _imgPath;
@@ -37,17 +37,13 @@ class _ProductEditPageState extends State<ProductEditPage> {
     _name = TextEditingController(text: p?.name ?? "");
     _code = TextEditingController(text: p?.code ?? "");
     _barcode = TextEditingController(text: p?.barcode ?? "");
-    _price = TextEditingController(
-      text: formatCurrency(p?.price ?? 0),
-    );
-    _costPrice = TextEditingController(
-      text: formatCurrency(p?.costPrice ?? 0),
-    );
+    _price = TextEditingController(text: formatCurrency(p?.price ?? 0));
+    _costPrice = TextEditingController(text: formatCurrency(p?.costPrice ?? 0));
     _stock = TextEditingController(text: p?.stock.toString() ?? "0");
     _unit = TextEditingController(text: p?.unit ?? "Cái");
-    _category = TextEditingController(text: p?.category ?? "Mặc định");
     _note = TextEditingController(text: p?.note ?? "");
-    _tax = p?.tax == 1;
+    _categoryId = TextEditingController(text: p?.categoryId?.toString() ?? "");
+    _tax = (p?.tax ?? 0) == 1;
     _imgPath = p?.img;
   }
 
@@ -55,9 +51,7 @@ class _ProductEditPageState extends State<ProductEditPage> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      setState(() {
-        _imgPath = picked.path;
-      });
+      setState(() => _imgPath = picked.path);
     }
   }
 
@@ -72,7 +66,7 @@ class _ProductEditPageState extends State<ProductEditPage> {
         costPrice: double.tryParse(_costPrice.text.replaceAll('.', '')) ?? 0,
         stock: int.tryParse(_stock.text) ?? 0,
         unit: _unit.text,
-        category: _category.text,
+        categoryId: int.tryParse(_categoryId.text),
         tax: _tax ? 1 : 0,
         note: _note.text,
         img: _imgPath,
@@ -119,8 +113,7 @@ class _ProductEditPageState extends State<ProductEditPage> {
                 onTap: _pickImage,
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundImage:
-                  _imgPath != null ? FileImage(File(_imgPath!)) : null,
+                  backgroundImage: _imgPath != null ? FileImage(File(_imgPath!)) : null,
                   child: _imgPath == null
                       ? const Icon(Icons.add_a_photo, size: 30)
                       : null,
@@ -145,44 +138,6 @@ class _ProductEditPageState extends State<ProductEditPage> {
                 suffixIcon: Icon(Icons.qr_code_scanner),
               ),
             ),
-            // ✅ Giá bán
-            TextFormField(
-              controller: _price,
-              decoration: const InputDecoration(labelText: "Giá bán"),
-              keyboardType: TextInputType.number,
-              onChanged: (val) {
-                final raw = val.replaceAll('.', '');
-                if (raw.isEmpty) return;
-                final parsed = int.tryParse(raw);
-                if (parsed != null) {
-                  _price.value = TextEditingValue(
-                    text: formatCurrency(parsed),
-                    selection: TextSelection.collapsed(
-                      offset: formatCurrency(parsed).length,
-                    ),
-                  );
-                }
-              },
-            ),
-            // ✅ Giá nhập
-            TextFormField(
-              controller: _costPrice,
-              decoration: const InputDecoration(labelText: "Giá nhập"),
-              keyboardType: TextInputType.number,
-              onChanged: (val) {
-                final raw = val.replaceAll('.', '');
-                if (raw.isEmpty) return;
-                final parsed = int.tryParse(raw);
-                if (parsed != null) {
-                  _costPrice.value = TextEditingValue(
-                    text: formatCurrency(parsed),
-                    selection: TextSelection.collapsed(
-                      offset: formatCurrency(parsed).length,
-                    ),
-                  );
-                }
-              },
-            ),
             TextFormField(
               controller: _stock,
               decoration: const InputDecoration(labelText: "Số lượng tồn"),
@@ -193,8 +148,9 @@ class _ProductEditPageState extends State<ProductEditPage> {
               decoration: const InputDecoration(labelText: "Đơn vị tính"),
             ),
             TextFormField(
-              controller: _category,
-              decoration: const InputDecoration(labelText: "Danh mục"),
+              controller: _categoryId,
+              decoration: const InputDecoration(labelText: "Mã danh mục (categoryId)"),
+              keyboardType: TextInputType.number,
             ),
 
             SwitchListTile(

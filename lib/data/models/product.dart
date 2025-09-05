@@ -7,7 +7,7 @@ class Product {
   final double costPrice;   // giá nhập
   final int stock;          // số lượng tồn
   final String unit;        // đơn vị tính
-  final String category;    // danh mục
+  int? categoryId;
   final int tax;            // 0 = không áp dụng, 1 = có áp dụng
   final String? note;       // ghi chú
   final String? img;        // ảnh
@@ -22,7 +22,7 @@ class Product {
     this.costPrice = 0,
     required this.stock,
     this.unit = "Cái",
-    this.category = "Mặc định",
+    this.categoryId,
     this.tax = 0,
     this.note,
     this.img,
@@ -39,7 +39,7 @@ class Product {
       'costPrice': costPrice,
       'stock': stock,
       'unit': unit,
-      'category': category,
+      'categoryId': categoryId,
       'tax': tax,
       'note': note,
       'img': img,
@@ -56,7 +56,7 @@ class Product {
       costPrice: (map['costPrice'] ?? 0).toDouble(),
       stock: map['stock'] ?? 0,
       unit: map['unit'] ?? "Cái",
-      category: map['category'] ?? "Mặc định",
+      categoryId: map['categoryId'] ?? "Mặc định",
       tax: map['tax'] ?? 0,
       note: map['note'],
       img: map['img'],
@@ -88,7 +88,7 @@ class Product {
       costPrice: costPrice ?? this.costPrice,
       stock: stock ?? this.stock,
       unit: unit ?? this.unit,
-      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       tax: tax ?? this.tax,
       note: note ?? this.note,
       img: img ?? this.img,

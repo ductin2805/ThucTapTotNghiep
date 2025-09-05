@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/product.dart';
+import '../../../data/models/category.dart';
 import '../../../data/repositories/product_repository.dart';
 import 'add_product_page.dart';
 import 'product_edit_page.dart';
 import '../../widgets/product_tile.dart';
 import '../../widgets/product_card.dart';
+import '../../../data/dao/category_dao.dart';
+import '../../widgets/product_filter_bar.dart'; // ✅ import widget mới
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -15,8 +18,12 @@ class ProductListPage extends StatefulWidget {
 
 class _ProductListPageState extends State<ProductListPage> {
   final _repo = ProductRepository();
+  final CategoryDao _categoryDao = CategoryDao();
+
   List<Product> _products = [];
   List<Product> _filtered = [];
+  List<Category> _categories = [];
+
   String _filter = "all";
   bool _isGrid = false;
 
@@ -24,14 +31,20 @@ class _ProductListPageState extends State<ProductListPage> {
   void initState() {
     super.initState();
     _loadProducts();
+    _loadCategories();
   }
 
   Future<void> _loadProducts() async {
     final data = await _repo.getAllProducts();
     setState(() {
       _products = data;
-      _filtered = data;
+      _applyFilter(_filter);
     });
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await _categoryDao.getAll();
+    setState(() => _categories = cats);
   }
 
   void _deleteProduct(int id) async {
@@ -57,20 +70,24 @@ class _ProductListPageState extends State<ProductListPage> {
 
   void _search(String query) {
     setState(() {
+      final baseList = _applyCurrentFilter();
       _filtered = query.isEmpty
-          ? _products
-          : _products
+          ? baseList
+          : baseList
           .where((p) => p.name.toLowerCase().contains(query.toLowerCase()))
           .toList();
     });
   }
 
+  List<Product> _applyCurrentFilter() {
+    if (_filter == "all") return _products;
+    return _products.where((p) => p.categoryId?.toString() == _filter).toList();
+  }
+
   void _applyFilter(String value) {
     setState(() {
       _filter = value;
-      _filtered = (value == "favorite")
-          ? _products.where((p) => p.isFavorite == true).toList()
-          : _products;
+      _filtered = _applyCurrentFilter();
     });
   }
 
@@ -89,171 +106,50 @@ class _ProductListPageState extends State<ProductListPage> {
       ),
       body: Column(
         children: [
-          _SearchBar(onChanged: _search),
-          _FilterAndToggleBar(
-            filter: _filter,
-            isGrid: _isGrid,
+          ProductFilterBar(
+            searchQuery: "",
+            onSearchChanged: _search,
+            selectedFilter: _filter,
+            categories: _categories,
             onFilterChanged: _applyFilter,
-            onToggle: (isGrid) => setState(() => _isGrid = isGrid),
+            isGrid: _isGrid,
+            onToggle: (val) => setState(() => _isGrid = val),
           ),
           const SizedBox(height: 10),
           Expanded(
             child: _filtered.isEmpty
-                ? const _EmptyListView()
+                ? const Center(child: Text("Không có mặt hàng nào."))
                 : _isGrid
-                ? ProductGrid(
-              products: _filtered,
-              onEdit: _openEdit,
-              onDelete: _deleteProduct,
+                ? GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate:
+              const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.9,
+              ),
+              itemCount: _filtered.length,
+              itemBuilder: (context, i) {
+                final p = _filtered[i];
+                return ProductCard(
+                    product: p, onTap: () => _openEdit(p));
+              },
             )
-                : ProductList(
-              products: _filtered,
-              onEdit: _openEdit,
-              onDelete: _deleteProduct,
+                : ListView.builder(
+              itemCount: _filtered.length,
+              itemBuilder: (context, i) {
+                final p = _filtered[i];
+                return ProductTile(
+                  product: p,
+                  onTap: () => _openEdit(p),
+                  onDelete: () => _deleteProduct(p.id!),
+                );
+              },
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// ----------------- Widgets tái sử dụng -----------------
-class _SearchBar extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-  const _SearchBar({required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: TextField(
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          hintText: "Tìm kiếm mặt hàng",
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterAndToggleBar extends StatelessWidget {
-  final String filter;
-  final bool isGrid;
-  final ValueChanged<String> onFilterChanged;
-  final ValueChanged<bool> onToggle;
-
-  const _FilterAndToggleBar({
-    required this.filter,
-    required this.isGrid,
-    required this.onFilterChanged,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: filter,
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('Tất cả mặt hàng')),
-                DropdownMenuItem(value: 'default', child: Text('Mặc định')),
-                DropdownMenuItem(value: 'favorite', child: Text('Yêu thích')),
-              ],
-              onChanged: (v) => onFilterChanged(v!),
-              decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.view_list_outlined),
-            color: !isGrid ? Colors.blue : Colors.grey,
-            onPressed: () => onToggle(false),
-          ),
-          IconButton(
-            icon: const Icon(Icons.grid_view),
-            color: isGrid ? Colors.blue : Colors.grey,
-            onPressed: () => onToggle(true),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyListView extends StatelessWidget {
-  const _EmptyListView();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        "Không có mặt hàng nào.\nVui lòng thêm mới.",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.black54),
-      ),
-    );
-  }
-}
-
-class ProductGrid extends StatelessWidget {
-  final List<Product> products;
-  final Function(Product) onEdit;
-  final Function(int) onDelete;
-
-  const ProductGrid({
-    super.key,
-    required this.products,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 0.9,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, i) {
-        final p = products[i];
-        return ProductCard(product: p, onTap: () => onEdit(p));
-      },
-    );
-  }
-}
-
-class ProductList extends StatelessWidget {
-  final List<Product> products;
-  final Function(Product) onEdit;
-  final Function(int) onDelete;
-
-  const ProductList({
-    super.key,
-    required this.products,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: products.length,
-      itemBuilder: (context, i) {
-        final p = products[i];
-        return ProductTile(
-          product: p,
-          onTap: () => onEdit(p),
-          onDelete: () => onDelete(p.id!),
-        );
-      },
     );
   }
 }
