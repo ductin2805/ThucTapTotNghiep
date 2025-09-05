@@ -3,6 +3,7 @@ import '../data/models/cart_product.dart';
 import '../data/models/customer.dart';
 import '../data/repositories/cart_repository.dart';
 import 'cart_state.dart';
+import '../data/models/amount_value.dart';
 
 class CartNotifier extends StateNotifier<CartState> {
   final CartRepository _repo = CartRepository();
@@ -47,9 +48,59 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 }
 
-final cartProvider =
-StateNotifierProvider<CartNotifier, CartState>((ref) {
+// Quản lý giỏ hàng
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
   return CartNotifier();
-})
+});
 
-;
+// Chiết khấu
+final discountProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Phụ phí
+final surchargeProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Thuế
+final taxProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Ghi chú
+final noteProvider = StateProvider<String>((ref) => "");
+
+
+//hàm tính tổng
+double calculateFinalTotal({
+  required double baseTotal,
+  required AmountValue discount,
+  required AmountValue surcharge,
+  required AmountValue tax,
+}) {
+  double finalTotal = baseTotal;
+
+  // Trừ chiết khấu
+  if (discount.type == "%") {
+    finalTotal -= baseTotal * (discount.value / 100);
+  } else {
+    finalTotal -= discount.value;
+  }
+
+  // Cộng phụ phí
+  if (surcharge.type == "%") {
+    finalTotal += baseTotal * (surcharge.value / 100);
+  } else {
+    finalTotal += surcharge.value;
+  }
+
+  // Cộng thuế
+  if (tax.type == "%") {
+    finalTotal += baseTotal * (tax.value / 100);
+  } else {
+    finalTotal += tax.value;
+  }
+
+  // Không cho tổng < 0
+  if (finalTotal < 0) finalTotal = 0;
+
+  return finalTotal;
+}

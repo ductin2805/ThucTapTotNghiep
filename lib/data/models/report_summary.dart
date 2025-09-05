@@ -1,14 +1,15 @@
 class ReportSummary {
-  final double profit;       // lợi nhuận
-  final double revenue;      // doanh thu
-  final int invoiceCount;    // số hóa đơn
-  final double invoiceValue; // tổng giá trị hóa đơn
-  final double tax;          // tiền thuế
-  final double discount;     // giảm giá (nếu có)
-  final double cost;         // tiền vốn
-  final double cash;         // tiền mặt
-  final double bank;         // ngân hàng
-  final double debt;         // khách nợ
+  final double profit;       // Lợi nhuận
+  final double revenue;      // Doanh thu
+  final int invoiceCount;    // Số lượng hóa đơn
+  final double invoiceValue; // Giá trị hóa đơn
+  final double tax;          // Thuế
+  final double discount;     // Chiết khấu
+  final double fee;          // Phụ phí (mới thêm)
+  final double cost;         // Vốn
+  final double cash;         // Tiền mặt
+  final double bank;         // Ngân hàng
+  final double debt;         // Công nợ
 
   ReportSummary({
     required this.profit,
@@ -17,6 +18,7 @@ class ReportSummary {
     required this.invoiceValue,
     required this.tax,
     required this.discount,
+    required this.fee,
     required this.cost,
     required this.cash,
     required this.bank,

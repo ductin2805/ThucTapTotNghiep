@@ -21,7 +21,7 @@ class AppDatabase {
 
     _db = await openDatabase(
       path,
-      version: 7, // tăng version để tránh xung đột cũ
+      version: 9, // 🔥 tăng version lên
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -88,7 +88,10 @@ class AppDatabase {
         total REAL NOT NULL,
         paid REAL NOT NULL,
         debt REAL NOT NULL,
-        method TEXT NOT NULL
+        method TEXT NOT NULL,
+        tax REAL DEFAULT 0,       
+        discount REAL DEFAULT 0,  
+        fee REAL DEFAULT 0       
       )
     ''');
 
@@ -101,6 +104,9 @@ class AppDatabase {
         name TEXT NOT NULL,
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
+        tax REAL DEFAULT 0,
+        fee REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
         FOREIGN KEY(invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
       )
     ''');
@@ -216,6 +222,16 @@ class AppDatabase {
         )
       ''');
     }
+    if (oldVersion < 8) {
+      await db.execute("ALTER TABLE invoice_items ADD COLUMN tax REAL DEFAULT 0");
+      await db.execute("ALTER TABLE invoice_items ADD COLUMN fee REAL DEFAULT 0");
+      await db.execute("ALTER TABLE invoice_items ADD COLUMN discount REAL DEFAULT 0");
+    }
+    if (oldVersion < 9) {
+      await db.execute("ALTER TABLE invoices ADD COLUMN tax REAL DEFAULT 0");
+      await db.execute("ALTER TABLE invoices ADD COLUMN discount REAL DEFAULT 0");
+      await db.execute("ALTER TABLE invoices ADD COLUMN fee REAL DEFAULT 0");
+    }
   }
 }
 
@@ -224,6 +240,7 @@ extension Reports on AppDatabase {
   Future<ReportSummary> getReportByFilter(String time, String invoice) async {
     final db = this.db;
 
+    // --- Xác định khoảng thời gian lọc ---
     String whereTime = "";
     List<dynamic> timeArgs = [];
     final now = DateTime.now();
@@ -269,6 +286,7 @@ extension Reports on AppDatabase {
       whereTime = "1=1"; // tất cả
     }
 
+    // --- Lọc theo phương thức hóa đơn ---
     String whereInvoice = "";
     List<dynamic> invoiceArgs = [];
     if (invoice != "Tất cả") {
@@ -279,7 +297,7 @@ extension Reports on AppDatabase {
     String where = "$whereTime $whereInvoice";
     List<dynamic> args = [...timeArgs, ...invoiceArgs];
 
-    // Hóa đơn
+    // --- Thông tin cơ bản của hóa đơn ---
     final invoiceData = await db.rawQuery('''
       SELECT COUNT(*) as count, 
              COALESCE(SUM(total), 0) as total, 
@@ -294,7 +312,7 @@ extension Reports on AppDatabase {
 
     final revenue = invoiceValue;
 
-    // Vốn
+    // --- Vốn và lợi nhuận ---
     final costData = await db.rawQuery('''
       SELECT COALESCE(SUM(p.costPrice * ii.quantity), 0) as cost
       FROM invoice_items ii
@@ -306,7 +324,22 @@ extension Reports on AppDatabase {
     final cost = (costData.first['cost'] as num?)?.toDouble() ?? 0;
     final profit = revenue - cost;
 
-    // Thanh toán (cash/bank)
+    // --- Thuế, chiết khấu, phụ phí từ HÓA ĐƠN ---
+    final extraData = await db.rawQuery('''
+      SELECT 
+        COALESCE(SUM(inv.tax), 0) as tax,
+        COALESCE(SUM(inv.discount), 0) as discount,
+        COALESCE(SUM(inv.fee), 0) as fee
+      FROM invoices inv
+      WHERE $where
+    ''', args);
+
+    final tax = (extraData.first['tax'] as num?)?.toDouble() ?? 0;
+    final discount = (extraData.first['discount'] as num?)?.toDouble() ?? 0;
+    final fee = (extraData.first['fee'] as num?)?.toDouble() ?? 0;
+
+
+    // --- Thanh toán theo phương thức ---
     final payData = await db.rawQuery('''
       SELECT method, SUM(paid) as sumPaid
       FROM invoices inv
@@ -322,13 +355,16 @@ extension Reports on AppDatabase {
       if (method == "bank") bank = sumPaid;
     }
 
+
+    // --- Trả về ReportSummary đã bao gồm thuế, chiết khấu, phụ phí ---
     return ReportSummary(
       profit: profit,
       revenue: revenue,
       invoiceCount: invoiceCount,
       invoiceValue: invoiceValue,
-      tax: 0,
-      discount: 0,
+      tax: tax,         // ✅ Thuế
+      discount: discount, // ✅ Chiết khấu
+      fee: fee,           // ✅ Phụ phí
       cost: cost,
       cash: cash,
       bank: bank,

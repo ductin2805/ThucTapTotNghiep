@@ -7,10 +7,8 @@ import 'package:intl/intl.dart';
 import '../../../providers/cart_provider.dart';
 
 class PaymentPage extends ConsumerStatefulWidget {
-  final double totalAmount;
+  final double totalAmount; // 👉 tổng cuối cùng (đã chiết khấu, phụ phí, thuế)
   final List<Map<String, dynamic>> cartItems;
-
-
 
   const PaymentPage({
     super.key,
@@ -25,7 +23,7 @@ class PaymentPage extends ConsumerStatefulWidget {
 class _PaymentPageState extends ConsumerState<PaymentPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String inputAmount = "";
+
   double paidAmount = 0;
   double changeAmount = 0;
 
@@ -35,29 +33,56 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  void _onKeyTap(String value) {
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onKeyTap(String key) {
     setState(() {
-      if (value == "DEL") {
-        if (inputAmount.isNotEmpty) {
-          inputAmount = inputAmount.substring(0, inputAmount.length - 1);
-        }
+      if (key == "DEL") {
+        paidAmount = (paidAmount / 10).floorToDouble();
       } else {
-        inputAmount += value;
+        paidAmount = double.tryParse(paidAmount.toStringAsFixed(0) + key) ?? paidAmount;
       }
-      paidAmount = double.tryParse(inputAmount) ?? 0;
       changeAmount = paidAmount - widget.totalAmount;
     });
   }
 
   Future<void> _savePayment(List<Map<String, dynamic>> cartItems) async {
     final db = AppDatabase.instance.db;
-
-    // Lấy thông tin giỏ hàng từ provider
     final cartState = ref.read(cartProvider);
+
+    // 👉 Lấy thuế, phụ phí, chiết khấu từ provider
+    final discountObj = ref.read(discountProvider);
+    final surchargeObj = ref.read(surchargeProvider);
+    final taxObj = ref.read(taxProvider);
+
+    final baseTotal = widget.totalAmount;
+
+    final discountValue = discountObj.type == "%"
+        ? baseTotal * (discountObj.value / 100)
+        : discountObj.value;
+
+    final surchargeValue = surchargeObj.type == "%"
+        ? baseTotal * (surchargeObj.value / 100)
+        : surchargeObj.value;
+
+    final taxValue = taxObj.type == "%"
+        ? baseTotal * (taxObj.value / 100)
+        : taxObj.value;
+
+    final finalTotal = calculateFinalTotal(
+      baseTotal: baseTotal,
+      discount: discountObj,
+      surcharge: surchargeObj,
+      tax: taxObj,
+    );
 
     String method = _tabController.index == 0 ? "cash" : "bank";
 
-    // 1. Lấy số thứ tự lớn nhất hôm nay +1 để tạo code
+    // 👉 Tạo code hóa đơn
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -76,21 +101,24 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
       }
     }
 
-    // Tạo code kiểu DH.yyMMdd.0001
-    final code = "DH.${DateFormat('yyMMdd').format(today)}.${orderNum.toString().padLeft(4, '0')}";
+    final code =
+        "DH.${DateFormat('yyMMdd').format(today)}.${orderNum.toString().padLeft(4, '0')}";
 
-    // 2. Insert vào bảng invoices
+    // 👉 Insert vào invoices
     final invoiceId = await db.insert("invoices", {
       "code": code,
       "createdAt": today.toIso8601String(),
       "customer": cartState.customer?.name ?? "Khách lẻ",
-      "total": widget.totalAmount,
+      "total": finalTotal,
       "paid": paidAmount,
       "debt": changeAmount < 0 ? -changeAmount : 0,
       "method": method,
+      "tax": taxValue,
+      "fee": surchargeValue,
+      "discount": discountValue,
     });
 
-    // 3. Insert chi tiết sản phẩm vào invoice_items
+    // 👉 Insert chi tiết sản phẩm
     for (var item in cartItems) {
       await db.insert("invoice_items", {
         "invoice_id": invoiceId,
@@ -98,12 +126,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
         "name": item["name"],
         "price": item["price"],
         "quantity": item["quantity"],
+        "tax": taxValue,
+        "fee": surchargeValue,
+        "discount": discountValue,
       });
     }
 
-    // 4. Insert vào bảng payments
+    // 👉 Insert vào payments
     await db.insert("payments", {
-      "total": widget.totalAmount,
+      "total": finalTotal,
       "paid": paidAmount,
       "change": changeAmount >= 0 ? changeAmount : 0,
       "method": method,
@@ -116,7 +147,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
       SnackBar(content: Text("Thanh toán thành công! Mã hóa đơn: $code")),
     );
 
-    // 5. Mở trang chi tiết hóa đơn
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -126,12 +156,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
         ),
       ),
     ).then((_) {
-      Navigator.pop(context, true); // Trả về true cho CartPage
+      Navigator.pop(context, true);
     });
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -152,15 +179,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
           const Text("Khách trả :", style: TextStyle(fontSize: 16)),
           const SizedBox(height: 8),
           Text(
-            formatCurrency(paidAmount), // ✅ format lại
+            formatCurrency(paidAmount),
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            "Tiền thừa: ${formatCurrency(paidAmount - widget.totalAmount)}", // ✅ format lại
+            "Tiền thừa: ${formatCurrency(changeAmount)}",
             style: TextStyle(
               fontSize: 16,
-              color: (paidAmount - widget.totalAmount) < 0 ? Colors.red : Colors.black54,
+              color: changeAmount < 0 ? Colors.red : Colors.black54,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -185,10 +212,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
 
   Widget _buildNumberPad() {
     final keys = [
-      "1","2","3",
-      "4","5","6",
-      "7","8","9",
-      "000","0","DEL",
+      "1", "2", "3",
+      "4", "5", "6",
+      "7", "8", "9",
+      "000", "0", "DEL",
     ];
     return GridView.builder(
       shrinkWrap: true,
@@ -215,3 +242,4 @@ class _PaymentPageState extends ConsumerState<PaymentPage>
     );
   }
 }
+

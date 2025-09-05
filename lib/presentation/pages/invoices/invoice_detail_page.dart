@@ -49,6 +49,10 @@ class _InvoiceDetailPageState extends ConsumerState<InvoiceDetailPage> {
       whereArgs: [widget.invoiceId],
     );
 
+    // ✅ Log ra console để kiểm tra dữ liệu
+    print("📋 Invoice row: $invoice");
+    print("🛒 Invoice items: $items");
+
     return {"invoice": invoice, "items": items};
   }
 
@@ -133,8 +137,9 @@ class _InvoiceDetailPageState extends ConsumerState<InvoiceDetailPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text("Chiết khấu: 0"),
-                              const Text("Thuế: 0"),
+                              Text("Chiết khấu: ${currency.format(invoice["discount"] ?? 0)}"),
+                              Text("Thuế: ${currency.format(invoice["tax"] ?? 0)}"),
+                              Text("Phụ phí: ${currency.format(invoice["fee"] ?? 0)}"),
                               Text("Khách trả: ${currency.format(invoice["paid"])}"),
                               Text("Khách nợ: ${currency.format(invoice["debt"] ?? 0)}"),
                               Text(

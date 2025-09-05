@@ -5,6 +5,9 @@ class InvoiceItem {
   final String name;
   final double price;
   final int quantity;
+  final double tax;      // ✅ Thuế
+  final double fee;      // ✅ Phụ phí
+  final double discount; // ✅ Chiết khấu
 
   InvoiceItem({
     this.id,
@@ -13,6 +16,9 @@ class InvoiceItem {
     required this.name,
     required this.price,
     required this.quantity,
+    this.tax = 0,        // mặc định 0
+    this.fee = 0,        // mặc định 0
+    this.discount = 0,   // mặc định 0
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +29,9 @@ class InvoiceItem {
       'name': name,
       'price': price,
       'quantity': quantity,
+      'tax': tax,
+      'fee': fee,
+      'discount': discount,
     };
   }
 
@@ -34,6 +43,9 @@ class InvoiceItem {
       name: map['name'],
       price: map['price'],
       quantity: map['quantity'],
+      tax: (map['tax'] as num?)?.toDouble() ?? 0,
+      fee: (map['fee'] as num?)?.toDouble() ?? 0,
+      discount: (map['discount'] as num?)?.toDouble() ?? 0,
     );
   }
 }

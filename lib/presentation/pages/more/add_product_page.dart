@@ -178,7 +178,27 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'Nhập giá nhập' : null,
               ),
-
+              // giá bán VNĐ
+              TextFormField(
+                controller: _priceCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    if (newValue.text.isEmpty) return newValue;
+                    final raw = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+                    final formatted = _currencyFormatter.format(int.parse(raw));
+                    return newValue.copyWith(
+                      text: formatted,
+                      selection:
+                      TextSelection.collapsed(offset: formatted.length),
+                    );
+                  }),
+                ],
+                decoration: const InputDecoration(labelText: 'Giá Bán (VNĐ)'),
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Nhập giá' : null,
+              ),
               // đơn vị tính
               TextFormField(
                 controller: _unitCtrl,
@@ -203,28 +223,6 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 controller: _noteCtrl,
                 decoration: const InputDecoration(labelText: 'Ghi chú'),
                 maxLines: 2,
-              ),
-
-              // giá bán VNĐ
-              TextFormField(
-                controller: _priceCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  TextInputFormatter.withFunction((oldValue, newValue) {
-                    if (newValue.text.isEmpty) return newValue;
-                    final raw = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-                    final formatted = _currencyFormatter.format(int.parse(raw));
-                    return newValue.copyWith(
-                      text: formatted,
-                      selection:
-                      TextSelection.collapsed(offset: formatted.length),
-                    );
-                  }),
-                ],
-                decoration: const InputDecoration(labelText: 'Giá (VNĐ)'),
-                validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Nhập giá' : null,
               ),
 
               // tồn kho

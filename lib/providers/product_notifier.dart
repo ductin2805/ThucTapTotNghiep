@@ -50,4 +50,5 @@ class ProductNotifier extends StateNotifier<List<Product>> {
 final productListProvider =
 StateNotifierProvider<ProductNotifier, List<Product>>((ref) {
   return ProductNotifier();
+
 });
