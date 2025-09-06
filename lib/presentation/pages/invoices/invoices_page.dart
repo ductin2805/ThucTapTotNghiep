@@ -4,6 +4,7 @@ import '../../../data/db/app_database.dart';
 import '../../pages/invoices/invoice_detail_page.dart';
 import '../filter/filter_page.dart';
 import '../../../utils/format.dart';
+import '../../widgets/app_drawer.dart';
 
 class InvoicesPage extends StatefulWidget {
   const InvoicesPage({super.key});
@@ -114,12 +115,21 @@ class _InvoicesPageState extends State<InvoicesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
+        ),
         title: const Text("Hóa đơn", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(icon: const Icon(Icons.search), onPressed: () {}),
           IconButton(icon: const Icon(Icons.filter_list), onPressed: _openFilter),
         ],
       ),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           // Thanh lọc

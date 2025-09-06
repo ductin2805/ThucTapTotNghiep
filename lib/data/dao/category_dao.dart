@@ -1,6 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import '../db/app_database.dart';
 import '../models/category.dart';
+import '../../providers/category_provider.dart'; // nơi khai báo categoryListProvider
 
 class CategoryDao {
   Future<Database> get _db async => AppDatabase.instance.db;
@@ -55,5 +57,23 @@ class CategoryDao {
       where: "id = ?",
       whereArgs: [id],
     );
+  }
+
+  // ✅ Hàm tiện ích: thêm + reload provider
+  Future<void> insertAndReload(WidgetRef ref, Category category) async {
+    await insert(category);
+    ref.invalidate(categoryListProvider);
+  }
+
+  // ✅ Hàm tiện ích: update + reload provider
+  Future<void> updateAndReload(WidgetRef ref, Category category) async {
+    await update(category);
+    ref.invalidate(categoryListProvider);
+  }
+
+  // ✅ Hàm tiện ích: delete + reload provider
+  Future<void> deleteAndReload(WidgetRef ref, int id) async {
+    await delete(id);
+    ref.invalidate(categoryListProvider);
   }
 }

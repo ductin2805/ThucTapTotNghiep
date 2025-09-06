@@ -5,6 +5,7 @@ import 'package:thuc_tap_tot_nghiep/presentation/pages/more/supplier_list_page.d
 import 'package:thuc_tap_tot_nghiep/presentation/pages/more/unit_list_page.dart';
 import 'account_page.dart';
 import 'customer_list_page.dart';
+import '../../widgets/app_drawer.dart';
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
 
@@ -22,12 +23,17 @@ class MorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {},
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
         ),
         title: const Text("Thông tin", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         children: [
           _buildMenuItem(

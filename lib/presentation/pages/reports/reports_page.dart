@@ -3,6 +3,8 @@ import '../../../utils/format.dart';
 import '../../../data/db/app_database.dart';
 import '../../../data/models/report_summary.dart';
 import '../filter/filter_page.dart';
+import '../../widgets/app_drawer.dart';
+
 
 class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
@@ -170,10 +172,14 @@ class _ReportsPageState extends State<ReportsPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {},
+      appBar:  AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
         ),
         title: const Text("Báo cáo",
             style: TextStyle(fontWeight: FontWeight.bold)),
@@ -184,6 +190,7 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         children: [
           // Thanh lọc

@@ -8,6 +8,7 @@ import '../../../providers/product_provider.dart';
 import '../../../providers/category_provider.dart';   // ✅ provider danh mục
 import '../../../providers/unit_provider.dart';       // ✅ provider đơn vị
 import '../../../utils/format.dart';
+import '../../../data/dao/category_dao.dart';
 
 class AddProductPage extends ConsumerStatefulWidget {
   const AddProductPage({super.key});
@@ -171,16 +172,23 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                 value: _selectedCategoryId,
                 decoration: const InputDecoration(labelText: "Danh mục"),
                 items: categories.when(
-                  data: (list) => list
-                      .map((c) => DropdownMenuItem(
-                      value: c.id, child: Text(c.name)))
-                      .toList(),
+                  data: (list) {
+                    return list
+                        .map((c) => DropdownMenuItem(
+                      value: c.id,
+                      child: Text(c.name),
+                    ))
+                        .toList();
+                  },
                   loading: () => [],
                   error: (_, __) => [],
                 ),
-                onChanged: (val) => setState(() => _selectedCategoryId = val),
+                onChanged: (val) {
+                  setState(() => _selectedCategoryId = val);
+                },
                 validator: (v) => v == null ? "Chọn danh mục" : null,
               ),
+
 
               SwitchListTile(
                 value: _applyTax,

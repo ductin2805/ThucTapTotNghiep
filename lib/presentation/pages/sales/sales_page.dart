@@ -9,6 +9,7 @@ import '../../widgets/product_tile.dart';
 import '../../widgets/product_filter_bar.dart';
 import '../../../data/models/category.dart';
 import '../../../data/dao/category_dao.dart';
+import '../../widgets/app_drawer.dart';
 
 class SalesPage extends ConsumerStatefulWidget {
   const SalesPage({super.key});
@@ -53,6 +54,14 @@ class _SalesPageState extends ConsumerState<SalesPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
+        ),
         title: const Text("Bán hàng"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -97,6 +106,7 @@ class _SalesPageState extends ConsumerState<SalesPage> {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           ProductFilterBar(

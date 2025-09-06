@@ -16,9 +16,6 @@ class AppDatabase {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, 'pos_local.db');
 
-    // ⚡ reset DB cũ trong giai đoạn dev
-    await deleteDatabase(path);
-
     _db = await openDatabase(
       path,
       version: 12, // 🔥 tăng version lên
