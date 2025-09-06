@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
-import 'add_product_page.dart'; // đổi path cho đúng vị trí file AddProductPage
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/category_list_page.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/product_list_page.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/supplier_list_page.dart';
+import 'package:thuc_tap_tot_nghiep/presentation/pages/more/unit_list_page.dart';
+import 'account_page.dart';
+import 'customer_list_page.dart';
+import '../../widgets/app_drawer.dart';
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
 
@@ -17,29 +23,79 @@ class MorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {},
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
         ),
         title: const Text("Thông tin", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         children: [
-          _buildMenuItem(Icons.person_outline, "Tài khoản"),
+          _buildMenuItem(
+            Icons.person_outline,
+            "Tài khoản",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AccountPage()),
+              );
+            },
+          ),
           _buildMenuItem(
             Icons.inventory_2_outlined,
             "Mặt hàng",
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AddProductPage()),
+                MaterialPageRoute(builder: (_) => ProductListPage()),
               );
             },
           ),
-          _buildMenuItem(Icons.folder_outlined, "Danh mục"),
-          _buildMenuItem(Icons.speed_outlined, "Đơn vị tính"),
-          _buildMenuItem(Icons.people_outline, "Khách hàng"),
-          _buildMenuItem(Icons.local_shipping_outlined, "Nhà cung cấp"),
+          _buildMenuItem(Icons.folder_outlined,
+              "Danh mục",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CategoryListPage()),
+              );
+            },
+          ),
+
+          _buildMenuItem(Icons.speed_outlined,
+              "Đơn vị tính",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UnitListPage()),
+              );
+            },
+          ),
+
+          _buildMenuItem(
+            Icons.people_outline,
+            "Khách hàng",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CustomerListPage()),
+              );
+            },
+          ),
+          _buildMenuItem(Icons.local_shipping_outlined,
+              "Nhà cung cấp",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SupplierListPage()),
+              );
+            },
+          ),
+
           _buildMenuItem(Icons.print_outlined, "Máy in", color: Colors.red),
 
           const Divider(thickness: 8, color: Color(0xFFF2F2F2)),

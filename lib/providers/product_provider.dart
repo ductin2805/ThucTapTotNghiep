@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/product.dart';
 import '../data/repositories/product_repository.dart';
+import '../data/dao/product_dao.dart';
 
 // Provider instance của repository (nếu cần có thể đổi impl)
 final productRepoProvider = Provider<ProductRepository>((ref) => ProductRepository());
@@ -34,5 +35,39 @@ class ProductListNotifier extends StateNotifier<List<Product>> {
   Future<void> updateStock(int id, int newStock) async {
     await repo.updateStock(id, newStock);
     await load();
+  }
+
+  Future<void> reloadStock(int id) async {
+    final product = await repo.getById(id);
+    if (product != null) {
+      state = [
+        for (final p in state)
+          if (p.id == id) product else p,
+      ];
+    }
+  }
+
+  Future<Product?> getById(int id) async {
+    return await repo.getById(id);
+  }
+
+  /// 🔹 Hàm giảm tồn kho theo số lượng
+  Future<void> decreaseStock(int id, int amount) async {
+    final product = await repo.getById(id);
+    if (product != null) {
+      final newStock = (product.stock - amount >= 0) ? product.stock - amount : 0;
+      await repo.updateStock(id, newStock);
+      await reloadStock(id);
+    }
+  }
+
+  /// 🔹 Hàm tăng tồn kho theo số lượng
+  Future<void> increaseStock(int id, int amount) async {
+    final product = await repo.getById(id);
+    if (product != null) {
+      final newStock = product.stock + amount;
+      await repo.updateStock(id, newStock);
+      await reloadStock(id);
+    }
   }
 }

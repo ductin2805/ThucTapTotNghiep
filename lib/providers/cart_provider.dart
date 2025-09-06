@@ -1,19 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/cart_product.dart';
+import '../data/models/customer.dart';
 import '../data/repositories/cart_repository.dart';
+import 'cart_state.dart';
+import '../data/models/amount_value.dart';
 
-/// StateNotifier quản lý danh sách sản phẩm trong giỏ hàng
-class CartNotifier extends StateNotifier<List<CartProduct>> {
+class CartNotifier extends StateNotifier<CartState> {
   final CartRepository _repo = CartRepository();
 
-  CartNotifier() : super([]) {
+  CartNotifier() : super(CartState(items: [])) {
     loadCart();
   }
 
-  /// Load lại giỏ hàng từ DB
+  /// Load giỏ hàng từ repository
   Future<void> loadCart() async {
     final items = await _repo.getCartProducts();
-    state = items;
+    state = state.copyWith(items: items);
   }
 
   /// Thêm sản phẩm vào giỏ
@@ -34,18 +36,71 @@ class CartNotifier extends StateNotifier<List<CartProduct>> {
     await loadCart();
   }
 
-  /// Xóa toàn bộ giỏ hàng
+  /// Xóa toàn bộ giỏ hàng (dùng sau thanh toán)
   Future<void> clearCart() async {
     await _repo.clearCart();
-    await loadCart();
+    state = CartState(items: []); // reset cả giỏ lẫn khách hàng
   }
 
-  /// Tính tổng tiền
-  double get total => state.fold(0, (sum, item) => sum + item.total);
+  /// Gắn khách hàng vào giỏ
+  void setCustomer(Customer? customer) {
+    state = state.copyWith(customer: customer);
+  }
 }
 
-/// Provider cho giỏ hàng
-final cartProvider =
-StateNotifierProvider<CartNotifier, List<CartProduct>>((ref) {
+// Quản lý giỏ hàng
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
   return CartNotifier();
 });
+
+// Chiết khấu
+final discountProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Phụ phí
+final surchargeProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Thuế
+final taxProvider =
+StateProvider<AmountValue>((ref) => AmountValue(0, "Tiền mặt"));
+
+// Ghi chú
+final noteProvider = StateProvider<String>((ref) => "");
+
+
+//hàm tính tổng
+double calculateFinalTotal({
+  required double baseTotal,
+  required AmountValue discount,
+  required AmountValue surcharge,
+  required AmountValue tax,
+}) {
+  double finalTotal = baseTotal;
+
+  // Trừ chiết khấu
+  if (discount.type == "%") {
+    finalTotal -= baseTotal * (discount.value / 100);
+  } else {
+    finalTotal -= discount.value;
+  }
+
+  // Cộng phụ phí
+  if (surcharge.type == "%") {
+    finalTotal += baseTotal * (surcharge.value / 100);
+  } else {
+    finalTotal += surcharge.value;
+  }
+
+  // Cộng thuế
+  if (tax.type == "%") {
+    finalTotal += baseTotal * (tax.value / 100);
+  } else {
+    finalTotal += tax.value;
+  }
+
+  // Không cho tổng < 0
+  if (finalTotal < 0) finalTotal = 0;
+
+  return finalTotal;
+}

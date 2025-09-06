@@ -5,13 +5,22 @@ import 'reports/reports_page.dart';
 import 'more/more_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final int initialIndex;
+  const HomePage({super.key, this.initialIndex = 0});
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selected = 0;
+  late int _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialIndex; // nhận giá trị từ constructor
+  }
+
   final pages = const [
     SalesPage(),
     InvoicesPage(),
@@ -29,10 +38,14 @@ class _HomePageState extends State<HomePage> {
         onTap: (i) => setState(() => _selected = i),
         selectedItemColor: Colors.blue,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), label: 'Bán hàng'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Hóa đơn'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), label: 'Báo cáo'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_outlined), label: 'Thêm'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_bag_outlined), label: 'Bán hàng'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_outlined), label: 'Hóa đơn'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_outlined), label: 'Báo cáo'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.grid_view_outlined), label: 'Thêm'),
         ],
       ),
     );

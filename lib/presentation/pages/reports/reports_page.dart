@@ -1,41 +1,120 @@
 import 'package:flutter/material.dart';
+import '../../../utils/format.dart';
+import '../../../data/db/app_database.dart';
+import '../../../data/models/report_summary.dart';
+import '../filter/filter_page.dart';
+import '../../widgets/app_drawer.dart';
 
-class ReportsPage extends StatelessWidget {
+
+class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
+
+  @override
+  State<ReportsPage> createState() => _ReportsPageState();
+}
+
+class _ReportsPageState extends State<ReportsPage> {
+  ReportSummary? summary; // dữ liệu báo cáo
+
+  // biến lưu filter
+  String selectedTime = "Hôm nay";
+  String selectedInvoice = "Tất cả";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  /// ✅ Trả về khoảng thời gian [start, end] theo filter
+  List<DateTime>? _getDateRange(String timeFilter) {
+    final now = DateTime.now();
+    DateTime start;
+    DateTime end;
+
+    switch (timeFilter) {
+      case "Hôm nay":
+        start = DateTime(now.year, now.month, now.day);
+        end = start.add(const Duration(days: 1));
+        break;
+      case "Hôm qua":
+        start = DateTime(now.year, now.month, now.day)
+            .subtract(const Duration(days: 1));
+        end = DateTime(now.year, now.month, now.day);
+        break;
+      case "Tuần này":
+        start = now.subtract(Duration(days: now.weekday - 1));
+        end = start.add(const Duration(days: 7));
+        break;
+      case "Tuần trước":
+        end = now.subtract(Duration(days: now.weekday));
+        start = end.subtract(const Duration(days: 7));
+        break;
+      case "Tháng này":
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 1);
+        break;
+      case "Tháng trước":
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 1);
+        break;
+      default:
+        return null; // Khác => chưa xử lý
+    }
+    return [start, end];
+  }
+
+  Future<void> _loadData() async {
+    final db = AppDatabase.instance;
+
+    final range = _getDateRange(selectedTime);
+    DateTime? start;
+    DateTime? end;
+
+    if (range != null) {
+      start = range[0];
+      end = range[1];
+    }
+
+    // ✅ truyền start, end, status
+    final data = await db.getReportByFilter(selectedTime, selectedInvoice);
+
+    setState(() => summary = data);
+  }
 
   Widget _buildStatCard(String title, String value,
       {Color color = Colors.black87}) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(6),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(value,
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 6),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54, fontSize: 14)),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 6),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54, fontSize: 13)),
+        ],
       ),
     );
   }
 
-  Widget _buildSection(String title, List<Widget> children) {
+  Widget _buildSection(String title, List<Widget> children,
+      {int crossAxis = 3}) {
     return Container(
       width: double.infinity,
       color: Colors.grey.shade100,
@@ -45,11 +124,17 @@ class ReportsPage extends StatelessWidget {
         children: [
           Text(title,
               style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87)),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          GridView.count(
+            crossAxisCount: crossAxis,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1.2,
             children: children,
           ),
         ],
@@ -57,37 +142,84 @@ class ReportsPage extends StatelessWidget {
     );
   }
 
+  /// ✅ Mở trang filter
+  Future<void> _openFilter() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FilterPage(
+          initialTime: selectedTime,
+          initialInvoice: selectedInvoice,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        selectedTime = result["time"];
+        selectedInvoice = result["invoice"];
+      });
+      await _loadData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (summary == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {},
+      appBar:  AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer(); // ✅ mở Drawer
+            },
+          ),
         ),
-        title: const Text("Báo cáo", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Báo cáo",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
-            onPressed: () {},
+            onPressed: _openFilter,
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: ListView(
         children: [
           // Thanh lọc
           Container(
             width: double.infinity,
             color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
-              children: const [
-                Text("Tất cả : ",
-                    style: TextStyle(fontSize: 16, color: Colors.black87)),
-                Text("Hôm nay",
-                    style: TextStyle(fontSize: 16, color: Colors.orange)),
-                Spacer(),
-                Icon(Icons.filter_alt_outlined, color: Colors.black54),
+              children: [
+                Text(
+                  "$selectedInvoice : ",
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+                GestureDetector(
+                  onTap: _openFilter,
+                  child: Text(
+                    selectedTime,
+                    style: const TextStyle(fontSize: 16, color: Colors.orange),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.filter_alt_outlined,
+                      color: Colors.black54),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _openFilter,
+                ),
               ],
             ),
           ),
@@ -97,10 +229,16 @@ class ReportsPage extends StatelessWidget {
           // 2 ô lợi nhuận / doanh thu
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 1.4,
               children: [
-                _buildStatCard("Lợi nhuận", "0"),
-                _buildStatCard("Doanh thu", "0"),
+                _buildStatCard("Lợi nhuận", formatCurrency(summary!.profit)),
+                _buildStatCard("Doanh thu", formatCurrency(summary!.revenue)),
               ],
             ),
           ),
@@ -109,22 +247,23 @@ class ReportsPage extends StatelessWidget {
 
           // Phần hóa đơn
           _buildSection("Hóa đơn", [
-            _buildStatCard("Số hóa đơn", "0"),
-            _buildStatCard("Giá trị hóa đơn", "0"),
-            _buildStatCard("Tiền thuế", "0"),
-            _buildStatCard("Giảm giá", "0"),
-            _buildStatCard("Tiền bán", "0"),
-            _buildStatCard("Tiền vốn", "0"),
+            _buildStatCard("Số hóa đơn", "${summary!.invoiceCount}"),
+            _buildStatCard(
+                "Giá trị hóa đơn", formatCurrency(summary!.invoiceValue)),
+            _buildStatCard("Tiền thuế", formatCurrency(summary!.tax)),
+            _buildStatCard("Giảm giá", formatCurrency(summary!.discount)),
+            _buildStatCard("Tiền bán", formatCurrency(summary!.revenue)),
+            _buildStatCard("Tiền vốn", formatCurrency(summary!.cost)),
           ]),
 
           const SizedBox(height: 20),
 
           // Phần thanh toán
           _buildSection("Thanh toán", [
-            _buildStatCard("Tiền mặt", "0"),
-            _buildStatCard("Ngân hàng", "0"),
-            _buildStatCard("Khách nợ", "0"),
-          ]),
+            _buildStatCard("Tiền mặt", formatCurrency(summary!.cash)),
+            _buildStatCard("Ngân hàng", formatCurrency(summary!.bank)),
+            _buildStatCard("Khách nợ", formatCurrency(summary!.debt)),
+          ], crossAxis: 3),
         ],
       ),
     );
